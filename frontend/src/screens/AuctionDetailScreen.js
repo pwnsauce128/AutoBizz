@@ -35,12 +35,16 @@ export default function AuctionDetailScreen({ route }) {
   const [loading, setLoading] = useState(true);
   const [bidAmount, setBidAmount] = useState('');
   const [isSubmitting, setSubmitting] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const loadAuction = async () => {
     setLoading(true);
     try {
       const data = await fetchAuction(id);
       setAuction(data);
+      if (data.image_urls && data.image_urls.length > 0) {
+        setActiveImageIndex(0);
+      }
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {
@@ -86,12 +90,31 @@ export default function AuctionDetailScreen({ route }) {
   const isBuyer = role === 'buyer';
   const canBid = Boolean(accessToken && isBuyer);
 
+  const imageUrls = auction.image_urls || [];
+  const heroImage = imageUrls[activeImageIndex] || imageUrls[0];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{auction.title}</Text>
       <Text style={styles.subtitle}>{auction.description}</Text>
-      {auction.image_urls && auction.image_urls[0] ? (
-        <Image source={{ uri: auction.image_urls[0] }} style={styles.heroImage} resizeMode="cover" />
+      {heroImage ? (
+        <Image source={{ uri: heroImage }} style={styles.heroImage} resizeMode="cover" />
+      ) : null}
+      {imageUrls.length > 1 ? (
+        <View style={styles.thumbnailGrid}>
+          {imageUrls.map((url, index) => {
+            const isActive = heroImage === url;
+            return (
+              <Pressable
+                key={`${url}-${index}`}
+                onPress={() => setActiveImageIndex(index)}
+                style={[styles.thumbnailButton, isActive && styles.thumbnailButtonActive]}
+              >
+                <Image source={{ uri: url }} style={styles.thumbnailImage} resizeMode="cover" />
+              </Pressable>
+            );
+          })}
+        </View>
       ) : null}
       <Text style={styles.meta}>Minimum price: {auction.min_price} {auction.currency}</Text>
       <Text style={styles.meta}>Status: {auction.status}</Text>
@@ -157,6 +180,29 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     backgroundColor: '#e5e5e5',
+  },
+  thumbnailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  thumbnailButton: {
+    width: 78,
+    height: 78,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: '#fff',
+  },
+  thumbnailButtonActive: {
+    borderColor: '#0f62fe',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
   },
   meta: {
     fontSize: 14,
