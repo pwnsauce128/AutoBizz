@@ -19,6 +19,7 @@ export default function AdminNewAuctionForm({ onCreated }) {
   const { accessToken } = useAuth();
   const [title, setTitle] = useState('');
   const [minPrice, setMinPrice] = useState('');
+  const [description, setDescription] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
   const [isSubmitting, setSubmitting] = useState(false);
 
@@ -79,8 +80,16 @@ export default function AdminNewAuctionForm({ onCreated }) {
   };
 
   const handleCreateAuction = async () => {
-    if (!title.trim()) {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+
+    if (!trimmedTitle) {
       Alert.alert('Missing title', 'Please provide a descriptive auction name.');
+      return;
+    }
+
+    if (!trimmedDescription) {
+      Alert.alert('Missing description', 'Describe the vehicle to help buyers.');
       return;
     }
 
@@ -94,9 +103,9 @@ export default function AdminNewAuctionForm({ onCreated }) {
     try {
       await createAuction(
         {
-          title: title.trim(),
+          title: trimmedTitle,
+          description: trimmedDescription,
           min_price: numericMinPrice,
-          description: title.trim(),
           currency: 'EUR',
           images: selectedImages.map((item) => item.dataUrl),
         },
@@ -104,6 +113,7 @@ export default function AdminNewAuctionForm({ onCreated }) {
       );
       setTitle('');
       setMinPrice('');
+      setDescription('');
       setSelectedImages([]);
       Alert.alert('Auction created', 'The auction has been published successfully.');
       if (onCreated) {
@@ -135,6 +145,18 @@ export default function AdminNewAuctionForm({ onCreated }) {
             onChangeText={setTitle}
             autoCapitalize="words"
             returnKeyType="next"
+          />
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Description</Text>
+          <TextInput
+            style={[styles.input, styles.multiline]}
+            placeholder="Highlight the vehicle condition, mileage, upgrades, etc."
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            textAlignVertical="top"
           />
         </View>
 
@@ -227,6 +249,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d0d5dd',
     fontSize: 16,
+  },
+  multiline: {
+    minHeight: 120,
+    textAlignVertical: 'top',
   },
   uploadButton: {
     borderWidth: 1,

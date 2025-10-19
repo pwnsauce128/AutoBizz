@@ -25,6 +25,11 @@ function AuctionCard({ auction, onPress }) {
         <Image source={{ uri: previewImage }} style={styles.cardImage} resizeMode="cover" />
       ) : null}
       <Text style={styles.cardTitle}>{auction.title}</Text>
+      {auction.description ? (
+        <Text style={styles.cardDescription} numberOfLines={2}>
+          {auction.description}
+        </Text>
+      ) : null}
       <View style={styles.cardRow}>
         <Text style={styles.cardLabel}>Minimum:</Text>
         <Text style={styles.cardValue}>
@@ -154,6 +159,10 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
+    marginBottom: 6,
+  },
+  cardDescription: {
+    color: '#4a4a4a',
     marginBottom: 12,
   },
   cardRow: {

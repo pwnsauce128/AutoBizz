@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import {
   deleteAuction,
   fetchAuction,
@@ -21,6 +22,8 @@ const EMPTY_LIST_MESSAGE = {
   admin: 'No auctions found.',
   seller: "You have not created any auctions yet.",
 };
+
+const MAX_IMAGES = 8;
 
 function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting }) {
   const previewImage =
@@ -37,6 +40,11 @@ function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting }) {
         <Text style={styles.cardTitle}>{auction.title}</Text>
         <Text style={styles.cardStatus}>{auction.status}</Text>
       </View>
+      {auction.description ? (
+        <Text style={styles.cardDescription} numberOfLines={2}>
+          {auction.description}
+        </Text>
+      ) : null}
       <View style={styles.cardRow}>
         <Text style={styles.cardLabel}>Minimum price</Text>
         <Text style={styles.cardValue}>
@@ -71,10 +79,16 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
   const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [formValues, setFormValues] = useState({ title: '', description: '', min_price: '' });
+  const [formImages, setFormImages] = useState([]);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
   const emptyMessage = EMPTY_LIST_MESSAGE[mode] || EMPTY_LIST_MESSAGE.seller;
+
+  const remainingSlots = useMemo(
+    () => Math.max(0, MAX_IMAGES - formImages.length),
+    [formImages.length],
+  );
 
   const loadAuctions = useCallback(async () => {
     setLoading(true);
@@ -104,6 +118,18 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
           description: detail.description || '',
           min_price: String(detail.min_price ?? ''),
         });
+        const existingImages = Array.isArray(detail.image_urls)
+          ? detail.image_urls
+          : Array.isArray(detail.images)
+          ? detail.images
+          : [];
+        setFormImages(
+          existingImages.map((url, index) => ({
+            id: `${url}-${index}`,
+            uri: url,
+            dataUrl: url,
+          })),
+        );
       } catch (err) {
         Alert.alert('Unable to load auction', err.message);
       }
@@ -114,7 +140,61 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
   const cancelEdit = () => {
     setEditingId(null);
     setFormValues({ title: '', description: '', min_price: '' });
+    setFormImages([]);
   };
+
+  const pickImages = useCallback(async () => {
+    if (remainingSlots <= 0) {
+      Alert.alert('Limit reached', `You can upload up to ${MAX_IMAGES} photos per auction.`);
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Allow access to your photos to upload a vehicle picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true,
+      allowsMultipleSelection: true,
+      selectionLimit: remainingSlots,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const assets = result.assets || [];
+    if (!assets.length) {
+      return;
+    }
+
+    const mapped = assets.slice(0, remainingSlots).map((asset, index) => {
+      const mimeType = asset.mimeType || 'image/jpeg';
+      const dataUrl = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
+      const id = asset.assetId || `${asset.uri}-${Date.now()}-${index}`;
+      return {
+        id,
+        uri: asset.uri,
+        dataUrl,
+      };
+    });
+
+    setFormImages((current) => {
+      const merged = [...current, ...mapped];
+      if (merged.length > MAX_IMAGES) {
+        return merged.slice(0, MAX_IMAGES);
+      }
+      return merged;
+    });
+  }, [remainingSlots]);
+
+  const removeImage = useCallback((imageId) => {
+    setFormImages((images) => images.filter((item) => item.id !== imageId));
+  }, []);
 
   const handleSave = async () => {
     if (!editingId) {
@@ -122,6 +202,10 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
     }
     if (!formValues.title.trim()) {
       Alert.alert('Missing title', 'Please provide a title for the auction.');
+      return;
+    }
+    if (!formValues.description.trim()) {
+      Alert.alert('Missing description', 'Please describe the vehicle.');
       return;
     }
     const numericPrice = Number(formValues.min_price);
@@ -136,8 +220,9 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
         editingId,
         {
           title: formValues.title.trim(),
-          description: formValues.description.trim() || formValues.title.trim(),
+          description: formValues.description.trim(),
           min_price: numericPrice,
+          images: formImages.map((item) => item.dataUrl),
         },
         accessToken,
       );
@@ -225,6 +310,37 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
             value={formValues.description}
             onChangeText={(value) => setFormValues((current) => ({ ...current, description: value }))}
           />
+          <View style={styles.imageSection}>
+            <Pressable
+              style={[styles.imageButton, remainingSlots <= 0 && styles.imageButtonDisabled]}
+              onPress={pickImages}
+              disabled={remainingSlots <= 0}
+            >
+              <Text style={styles.imageButtonLabel}>
+                {remainingSlots <= 0 ? 'Maximum photos added' : 'Add photos'}
+              </Text>
+            </Pressable>
+            <Text style={styles.imageHelper}>
+              You can attach up to {MAX_IMAGES} photos. {remainingSlots} remaining.
+            </Text>
+            {formImages.length ? (
+              <View style={styles.imageGrid}>
+                {formImages.map((image) => (
+                  <View key={image.id} style={styles.imageWrapper}>
+                    <Image source={{ uri: image.uri }} style={styles.imageThumbnail} resizeMode="cover" />
+                    <Pressable
+                      style={styles.removeImageButton}
+                      onPress={() => removeImage(image.id)}
+                    >
+                      <Text style={styles.removeImageLabel}>×</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.imagePlaceholder}>No photos added yet.</Text>
+            )}
+          </View>
           <TextInput
             style={styles.input}
             placeholder="Minimum price"
@@ -301,6 +417,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     marginRight: 12,
+  },
+  cardDescription: {
+    color: '#4a4a4a',
+    marginBottom: 8,
   },
   cardStatus: {
     fontSize: 12,
@@ -381,6 +501,72 @@ const styles = StyleSheet.create({
   multiline: {
     minHeight: 90,
     textAlignVertical: 'top',
+  },
+  imageSection: {
+    marginBottom: 16,
+  },
+  imageButton: {
+    borderWidth: 1,
+    borderColor: '#0f62fe',
+    borderRadius: 10,
+    borderStyle: 'dashed',
+    paddingVertical: 18,
+    alignItems: 'center',
+    backgroundColor: '#eef3ff',
+  },
+  imageButtonDisabled: {
+    opacity: 0.5,
+  },
+  imageButtonLabel: {
+    color: '#0f62fe',
+    fontWeight: '600',
+  },
+  imageHelper: {
+    marginTop: 6,
+    color: '#6f6f6f',
+    fontSize: 12,
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+  },
+  imageWrapper: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 8,
+    marginBottom: 8,
+    position: 'relative',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#d0d5dd',
+  },
+  imageThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(15, 98, 254, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeImageLabel: {
+    color: '#fff',
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  imagePlaceholder: {
+    marginTop: 10,
+    color: '#6f6f6f',
+    fontSize: 12,
   },
   editActions: {
     flexDirection: 'row',

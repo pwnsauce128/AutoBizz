@@ -127,8 +127,7 @@ def create_auction():
     user = get_current_user()
     data = request.get_json(force=True)
     title = _sanitize_text(data.get("title"), "title")
-    description_raw = data.get("description")
-    description = _sanitize_text(description_raw, "description", allow_empty=True) or title
+    description = _sanitize_text(data.get("description"), "description")
     min_price_value = _parse_price(data.get("min_price"))
     currency = _normalize_currency(data.get("currency", "EUR"))
     images = _normalize_images(data.get("images", []))
@@ -222,10 +221,7 @@ def update_auction(auction_id: uuid.UUID):
         updates_applied = True
 
     if "description" in data:
-        description = _sanitize_text(
-            data.get("description"), "description", allow_empty=True
-        )
-        auction.description = description or auction.title
+        auction.description = _sanitize_text(data.get("description"), "description")
         updates_applied = True
 
     if "min_price" in data:
@@ -274,6 +270,7 @@ def serialize_auction_preview(auction: Auction) -> dict:
     return {
         "id": str(auction.id),
         "title": auction.title,
+        "description": auction.description,
         "min_price": float(auction.min_price),
         "currency": auction.currency,
         "status": auction.status.value,
