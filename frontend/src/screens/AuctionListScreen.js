@@ -15,7 +15,10 @@ import { useAuth } from '../context/AuthContext';
 
 function AuctionCard({ auction, onPress }) {
   const bestBid = auction.best_bid;
-  const previewImage = auction.image_urls && auction.image_urls[0];
+  const previewImage =
+    (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
+    (Array.isArray(auction.images) && auction.images[0]) ||
+    null;
   return (
     <Pressable style={styles.card} onPress={onPress}>
       {previewImage ? (

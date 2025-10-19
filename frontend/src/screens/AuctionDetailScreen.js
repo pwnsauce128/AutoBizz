@@ -42,7 +42,10 @@ export default function AuctionDetailScreen({ route }) {
     try {
       const data = await fetchAuction(id);
       setAuction(data);
-      if (data.image_urls && data.image_urls.length > 0) {
+      const hasImages =
+        (Array.isArray(data.image_urls) && data.image_urls.length > 0) ||
+        (Array.isArray(data.images) && data.images.length > 0);
+      if (hasImages) {
         setActiveImageIndex(0);
       }
     } catch (error) {
@@ -90,7 +93,10 @@ export default function AuctionDetailScreen({ route }) {
   const isBuyer = role === 'buyer';
   const canBid = Boolean(accessToken && isBuyer);
 
-  const imageUrls = auction.image_urls || [];
+  const imageUrls =
+    (Array.isArray(auction.image_urls) && auction.image_urls) ||
+    (Array.isArray(auction.images) && auction.images) ||
+    [];
   const heroImage = imageUrls[activeImageIndex] || imageUrls[0];
 
   return (

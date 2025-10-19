@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -13,9 +14,16 @@ import { listAuctions } from '../api/client';
 function AuctionPreviewCard({ auction, onPress }) {
   const bestBid = auction.best_bid;
   const hasBestBid = Boolean(bestBid);
+  const previewImage =
+    (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
+    (Array.isArray(auction.images) && auction.images[0]) ||
+    null;
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
+      {previewImage ? (
+        <Image source={{ uri: previewImage }} style={styles.cardImage} resizeMode="cover" />
+      ) : null}
       <Text style={styles.cardTitle}>{auction.title}</Text>
       <View style={styles.cardRow}>
         <Text style={styles.cardLabel}>Minimum price</Text>
@@ -160,6 +168,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  cardImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 10,
+    marginBottom: 12,
+    backgroundColor: '#e5e5e5',
   },
   cardTitle: {
     fontSize: 18,
