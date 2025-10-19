@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -22,8 +23,16 @@ const EMPTY_LIST_MESSAGE = {
 };
 
 function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting }) {
+  const previewImage =
+    (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
+    (Array.isArray(auction.images) && auction.images[0]) ||
+    null;
+
   return (
     <View style={styles.card}>
+      {previewImage ? (
+        <Image source={{ uri: previewImage }} style={styles.cardImage} resizeMode="cover" />
+      ) : null}
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{auction.title}</Text>
         <Text style={styles.cardStatus}>{auction.status}</Text>
@@ -273,6 +282,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardImage: {
+    width: '100%',
+    height: 140,
+    borderRadius: 10,
+    marginBottom: 12,
+    backgroundColor: '#e5e5e5',
   },
   cardHeader: {
     flexDirection: 'row',
