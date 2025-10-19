@@ -17,6 +17,7 @@ class BaseConfig:
     JWT_SECRET_KEY: str | None = os.getenv("JWT_SECRET_KEY")
     JWT_ACCESS_TOKEN_EXPIRES: timedelta = timedelta(minutes=15)
     JWT_REFRESH_TOKEN_EXPIRES: timedelta = timedelta(days=7)
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "*")
 
 
 @dataclass

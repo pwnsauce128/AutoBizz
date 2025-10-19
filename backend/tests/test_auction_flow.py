@@ -146,3 +146,16 @@ def test_buyer_cannot_exceed_bid_limit(client):
     )
     assert third_bid.status_code == 400
     assert "limit" in third_bid.get_json()["message"].lower()
+
+
+def test_cors_headers_allow_frontend_origin(client):
+    origin = "http://localhost:19006"
+    response = client.options(
+        "/auth/login",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers.get("Access-Control-Allow-Origin") in {"*", origin}
