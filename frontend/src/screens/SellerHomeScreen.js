@@ -2,29 +2,34 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import AdminNewAuctionForm from '../components/AdminNewAuctionForm';
 import AuctionManagementList from '../components/AuctionManagementList';
-import UserManagementSection from '../components/UserManagementSection';
 
-export default function AdminHomeScreen() {
+export default function SellerHomeScreen() {
   const { logout, accessToken } = useAuth();
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('create');
   const [refreshKey, setRefreshKey] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
-      setActiveTab('users');
+      setActiveTab('create');
       setRefreshKey((current) => current + 1);
     }, []),
   );
 
-  const showUsers = activeTab === 'users';
+  const handleCreated = () => {
+    setRefreshKey((current) => current + 1);
+    setActiveTab('manage');
+  };
+
+  const showCreate = activeTab === 'create';
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Admin control center</Text>
-          <Text style={styles.subtitle}>Manage platform users and oversee auctions</Text>
+          <Text style={styles.title}>Seller workspace</Text>
+          <Text style={styles.subtitle}>Publish new auctions and manage your listings</Text>
         </View>
         <Pressable onPress={logout} style={styles.logoutButton}>
           <Text style={styles.logout}>Log out</Text>
@@ -33,24 +38,24 @@ export default function AdminHomeScreen() {
 
       <View style={styles.tabBar}>
         <Pressable
-          onPress={() => setActiveTab('users')}
-          style={[styles.tabButton, showUsers && styles.tabButtonActive]}
+          onPress={() => setActiveTab('create')}
+          style={[styles.tabButton, showCreate && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, showUsers && styles.tabLabelActive]}>Users</Text>
+          <Text style={[styles.tabLabel, showCreate && styles.tabLabelActive]}>Create auction</Text>
         </Pressable>
         <Pressable
-          onPress={() => setActiveTab('auctions')}
-          style={[styles.tabButton, !showUsers && styles.tabButtonActive]}
+          onPress={() => setActiveTab('manage')}
+          style={[styles.tabButton, !showCreate && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, !showUsers && styles.tabLabelActive]}>Auctions</Text>
+          <Text style={[styles.tabLabel, !showCreate && styles.tabLabelActive]}>My auctions</Text>
         </Pressable>
       </View>
 
       <View style={styles.content}>
-        {showUsers ? (
-          <UserManagementSection accessToken={accessToken} />
+        {showCreate ? (
+          <AdminNewAuctionForm onCreated={handleCreated} />
         ) : (
-          <AuctionManagementList mode="admin" accessToken={accessToken} refreshKey={refreshKey} />
+          <AuctionManagementList mode="seller" accessToken={accessToken} refreshKey={refreshKey} />
         )}
       </View>
     </View>
