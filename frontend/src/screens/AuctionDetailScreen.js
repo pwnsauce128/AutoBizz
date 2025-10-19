@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -89,6 +90,9 @@ export default function AuctionDetailScreen({ route }) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{auction.title}</Text>
       <Text style={styles.subtitle}>{auction.description}</Text>
+      {auction.image_urls && auction.image_urls[0] ? (
+        <Image source={{ uri: auction.image_urls[0] }} style={styles.heroImage} resizeMode="cover" />
+      ) : null}
       <Text style={styles.meta}>Minimum price: {auction.min_price} {auction.currency}</Text>
       <Text style={styles.meta}>Status: {auction.status}</Text>
       {auction.end_at ? (
@@ -146,6 +150,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#4a4a4a',
     marginBottom: 16,
+  },
+  heroImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: 16,
+    marginBottom: 16,
+    backgroundColor: '#e5e5e5',
   },
   meta: {
     fontSize: 14,

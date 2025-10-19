@@ -64,10 +64,19 @@ export async function placeBid(auctionId, amount, token) {
   });
 }
 
+export async function createAuction(data, token) {
+  return request('/auctions', {
+    method: 'POST',
+    token,
+    body: data,
+  });
+}
+
 export default {
   register,
   login,
   listAuctions,
   fetchAuction,
   placeBid,
+  createAuction,
 };
