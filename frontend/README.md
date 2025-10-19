@@ -24,6 +24,7 @@ This directory contains a lightweight Expo/React Native client for interacting w
    ```bash
    cd frontend
    npm install
+   npx expo install react-native-web react-dom @expo/metro-runtime
    ```
 
 2. Optionally configure the backend URL exposed to the Expo client by creating an `.env` file in this folder:

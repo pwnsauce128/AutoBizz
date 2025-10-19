@@ -21,8 +21,16 @@ export default function RegisterScreen({ navigation }) {
     setLoading(true);
     try {
       await registerRequest({ username, email, password });
-      Alert.alert('Success', 'Account created. You can now log in.');
-      navigation.goBack();
+      Alert.alert('Success', 'Account created. You can now log in.', [
+        {
+          text: 'Go to login',
+          onPress: () =>
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            }),
+        },
+      ]);
     } catch (error) {
       Alert.alert('Registration failed', error.message);
     } finally {
