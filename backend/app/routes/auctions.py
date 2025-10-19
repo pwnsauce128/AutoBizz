@@ -64,11 +64,21 @@ def list_auctions():
     return jsonify([serialize_auction_preview(auction) for auction in auctions])
 
 
-def _normalize_images(images: list[str] | None) -> list[str]:
+def _normalize_images(images: object) -> list[str]:
     """Validate and normalize the list of provided image URLs/base64 strings."""
 
     if images is None:
         return []
+
+    # Accept a single string/bytes payload for backwards compatibility by
+    # normalising it into a list.
+    if isinstance(images, (str, bytes)):
+        images = [images]
+
+    # Some clients may submit image descriptors instead of bare strings. Allow a
+    # mapping with common keys so long as it contains a usable value.
+    if isinstance(images, dict):
+        images = [images]
 
     if not isinstance(images, list):
         abort(HTTPStatus.BAD_REQUEST, description="Images must be provided as a list")
@@ -77,9 +87,31 @@ def _normalize_images(images: list[str] | None) -> list[str]:
     for item in images:
         if not item:
             continue
-        if not isinstance(item, (str, bytes)):
+
+        if isinstance(item, dict):
+            candidate = (
+                item.get("dataUrl")
+                or item.get("data_url")
+                or item.get("url")
+                or item.get("uri")
+            )
+            if not candidate:
+                abort(
+                    HTTPStatus.BAD_REQUEST,
+                    description="Each image must include a usable string value",
+                )
+            item = candidate
+
+        if isinstance(item, bytes):
+            value = item.decode()
+        elif isinstance(item, str):
+            value = item
+        else:
             abort(HTTPStatus.BAD_REQUEST, description="Each image must be a string value")
-        normalized.append(item.decode() if isinstance(item, bytes) else str(item))
+
+        value = value.strip()
+        if value:
+            normalized.append(value)
 
     if len(normalized) > MAX_AUCTION_IMAGES:
         abort(
