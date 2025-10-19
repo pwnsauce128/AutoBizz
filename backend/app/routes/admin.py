@@ -1,11 +1,12 @@
 """Administrative endpoints for managing users."""
 from __future__ import annotations
-
 from http import HTTPStatus
+import re
 import uuid
 
 from flask import Blueprint, abort, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 
 from ..extensions import db
@@ -49,8 +50,22 @@ def create_user():
     role_value = data.get("role")
     password = data.get("password")
 
+    if not isinstance(email, str) or not isinstance(username, str) or not isinstance(role_value, str) or not isinstance(password, str):
+        abort(HTTPStatus.BAD_REQUEST, description="Invalid field types")
+
+    email = email.strip().lower()
+    username = username.strip()
+    role_value = role_value.strip().lower()
+    password = password.strip()
+
     if not email or not username or not role_value or not password:
         abort(HTTPStatus.BAD_REQUEST, description="Missing fields")
+
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", username):
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            description="Username must be 3-32 characters and contain only letters, numbers, dots, underscores or hyphens",
+        )
 
     if role_value not in {item.value for item in UserRole}:
         abort(HTTPStatus.BAD_REQUEST, description="Invalid role")
@@ -58,7 +73,7 @@ def create_user():
     if len(password) < 12:
         abort(HTTPStatus.BAD_REQUEST, description="Password must be at least 12 characters")
 
-    if User.query.filter((User.email == email) | (User.username == username)).first():
+    if User.query.filter((func.lower(User.email) == email) | (User.username == username)).first():
         abort(HTTPStatus.CONFLICT, description="User already exists")
 
     user = User(
@@ -101,7 +116,10 @@ def update_user(user_id: uuid.UUID):
     actor_id = uuid.UUID(str(get_jwt_identity()))
 
     if "status" in data:
-        status_value = data.get("status")
+        status_raw = data.get("status")
+        if not isinstance(status_raw, str):
+            abort(HTTPStatus.BAD_REQUEST, description="Invalid status")
+        status_value = status_raw.strip().lower()
         if status_value not in {item.value for item in UserStatus}:
             abort(HTTPStatus.BAD_REQUEST, description="Invalid status")
         user.status = UserStatus(status_value)
@@ -117,7 +135,10 @@ def update_user(user_id: uuid.UUID):
         )
 
     if "role" in data:
-        role_value = data.get("role")
+        role_raw = data.get("role")
+        if not isinstance(role_raw, str):
+            abort(HTTPStatus.BAD_REQUEST, description="Invalid role")
+        role_value = role_raw.strip().lower()
         if role_value not in {UserRole.BUYER.value, UserRole.SELLER.value, UserRole.ADMIN.value}:
             abort(HTTPStatus.BAD_REQUEST, description="Invalid role")
         user.role = UserRole(role_value)

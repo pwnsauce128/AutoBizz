@@ -1,7 +1,7 @@
 """Bid placement endpoints."""
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http import HTTPStatus
 import uuid
 
@@ -20,6 +20,8 @@ from ..models import (
 )
 from .utils import get_current_user, role_required
 
+
+TWO_PLACES = Decimal("0.01")
 
 bids_bp = Blueprint("bids", __name__)
 
@@ -52,7 +54,14 @@ def place_bid(auction_id: uuid.UUID):
     if existing_count >= 2:
         abort(HTTPStatus.BAD_REQUEST, description="Bid limit reached for this auction")
 
-    amount_decimal = Decimal(str(amount))
+    try:
+        amount_decimal = Decimal(str(amount)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    except (TypeError, InvalidOperation):
+        abort(HTTPStatus.BAD_REQUEST, description="Bid amount must be numeric")
+
+    if amount_decimal <= 0:
+        abort(HTTPStatus.BAD_REQUEST, description="Bid amount must be positive")
+
     min_price = Decimal(str(auction.min_price))
     if amount_decimal < min_price:
         abort(HTTPStatus.BAD_REQUEST, description="Bid below minimum price")

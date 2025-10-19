@@ -1,6 +1,7 @@
 """Auction CRUD endpoints."""
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http import HTTPStatus
 import uuid
 
@@ -24,6 +25,7 @@ from .utils import get_current_user, role_required
 
 AUCTIONS_PER_PAGE = 20
 MAX_AUCTION_IMAGES = 8
+TWO_PLACES = Decimal("0.01")
 
 
 auctions_bp = Blueprint("auctions", __name__)
@@ -78,28 +80,58 @@ def _normalize_images(images: list[str] | None) -> list[str]:
     return normalized
 
 
+def _sanitize_text(value: object, field: str, *, allow_empty: bool = False) -> str:
+    if value is None:
+        if allow_empty:
+            return ""
+        abort(HTTPStatus.BAD_REQUEST, description=f"Missing {field}")
+    if not isinstance(value, str):
+        abort(HTTPStatus.BAD_REQUEST, description=f"{field.capitalize()} must be a string")
+    sanitized = value.strip()
+    if not sanitized and not allow_empty:
+        abort(HTTPStatus.BAD_REQUEST, description=f"Missing {field}")
+    return sanitized
+
+
+def _normalize_currency(value: object) -> str:
+    if value is None:
+        return "EUR"
+    if not isinstance(value, str):
+        abort(HTTPStatus.BAD_REQUEST, description="Currency must be a string")
+    normalized = value.strip().upper()
+    if len(normalized) != 3 or not normalized.isalpha():
+        abort(HTTPStatus.BAD_REQUEST, description="Currency must be a three-letter code")
+    return normalized
+
+
+def _parse_price(raw_value: object) -> Decimal:
+    if raw_value is None:
+        abort(HTTPStatus.BAD_REQUEST, description="Missing minimum price")
+    try:
+        price = Decimal(str(raw_value))
+    except (TypeError, InvalidOperation):
+        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be numeric")
+    try:
+        quantized = price.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be numeric")
+    if quantized <= 0:
+        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be positive")
+    return quantized
+
+
 @auctions_bp.post("")
 @jwt_required()
 @role_required(UserRole.SELLER, UserRole.ADMIN)
 def create_auction():
     user = get_current_user()
     data = request.get_json(force=True)
-    title = data.get("title")
-    description = data.get("description") or title
-    min_price = data.get("min_price")
-    currency = data.get("currency", "EUR")
+    title = _sanitize_text(data.get("title"), "title")
+    description_raw = data.get("description")
+    description = _sanitize_text(description_raw, "description", allow_empty=True) or title
+    min_price_value = _parse_price(data.get("min_price"))
+    currency = _normalize_currency(data.get("currency", "EUR"))
     images = _normalize_images(data.get("images", []))
-
-    if not title or min_price is None:
-        abort(HTTPStatus.BAD_REQUEST, description="Missing required fields")
-
-    try:
-        min_price_value = float(min_price)
-    except (TypeError, ValueError):
-        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be numeric")
-
-    if min_price_value <= 0:
-        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be positive")
 
     auction = Auction(
         seller_id=user.id,
@@ -183,20 +215,34 @@ def update_auction(auction_id: uuid.UUID):
         abort(HTTPStatus.FORBIDDEN, description="Cannot edit another seller's auction")
 
     data = request.get_json(force=True)
-    field_map = {
-        "title": "title",
-        "description": "description",
-        "min_price": "min_price",
-        "currency": "currency",
-        "images": "image_urls",
-        "image_urls": "image_urls",
-    }
-    for json_key, model_field in field_map.items():
-        if json_key in data:
-            value = data[json_key]
-            if model_field == "image_urls":
-                value = _normalize_images(value)
-            setattr(auction, model_field, value)
+    updates_applied = False
+
+    if "title" in data:
+        auction.title = _sanitize_text(data.get("title"), "title")
+        updates_applied = True
+
+    if "description" in data:
+        description = _sanitize_text(
+            data.get("description"), "description", allow_empty=True
+        )
+        auction.description = description or auction.title
+        updates_applied = True
+
+    if "min_price" in data:
+        auction.min_price = _parse_price(data.get("min_price"))
+        updates_applied = True
+
+    if "currency" in data:
+        auction.currency = _normalize_currency(data.get("currency"))
+        updates_applied = True
+
+    if "images" in data or "image_urls" in data:
+        payload = data.get("image_urls", data.get("images"))
+        auction.image_urls = _normalize_images(payload)
+        updates_applied = True
+
+    if not updates_applied:
+        abort(HTTPStatus.BAD_REQUEST, description="No valid updates provided")
 
     db.session.commit()
     return jsonify(serialize_auction_detail(auction))
