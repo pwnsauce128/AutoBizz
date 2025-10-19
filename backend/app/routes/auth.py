@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
+import re
 import uuid
 
 from flask import Blueprint, abort, jsonify, request
@@ -12,6 +13,7 @@ from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
 )
+from sqlalchemy import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
@@ -30,13 +32,29 @@ def register_user():
     password = data.get("password")
     requested_role = data.get("role")
 
+    if not isinstance(username, str) or not isinstance(email, str) or not isinstance(password, str):
+        abort(HTTPStatus.BAD_REQUEST, description="Invalid field types")
+
+    username = username.strip()
+    email = email.strip().lower()
+    password = password.strip()
+
     if not username or not password or not email:
         abort(HTTPStatus.BAD_REQUEST, description="Missing required fields")
+
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", username):
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            description="Username must be 3-32 characters and contain only letters, numbers, dots, underscores or hyphens",
+        )
+
+    if len(password) < 12:
+        abort(HTTPStatus.BAD_REQUEST, description="Password must be at least 12 characters")
 
     if requested_role and requested_role != UserRole.BUYER.value:
         abort(HTTPStatus.FORBIDDEN, description="Role selection is restricted")
 
-    if User.query.filter((User.email == email) | (User.username == username)).first():
+    if User.query.filter((func.lower(User.email) == email) | (User.username == username)).first():
         abort(HTTPStatus.CONFLICT, description="User already exists")
 
     user = User(
@@ -56,6 +74,10 @@ def login():
     data = request.get_json(force=True)
     identifier = data.get("usernameOrEmail")
     password = data.get("password")
+    if not isinstance(identifier, str) or not isinstance(password, str):
+        abort(HTTPStatus.BAD_REQUEST, description="Invalid credentials")
+
+    identifier = identifier.strip()
     if not identifier or not password:
         abort(HTTPStatus.BAD_REQUEST, description="Missing credentials")
 

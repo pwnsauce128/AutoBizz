@@ -9,7 +9,6 @@ from flask import abort
 from flask_jwt_extended import get_jwt, get_jwt_identity
 
 from ..models import User
-
 from ..models import UserRole
 
 F = TypeVar("F", bound=Callable[..., object])
@@ -36,7 +35,12 @@ def get_current_user() -> User:
     """Return the authenticated user from the JWT identity."""
 
     identity = get_jwt_identity()
-    user = User.query.filter_by(id=uuid.UUID(str(identity))).first()
+    try:
+        user_uuid = uuid.UUID(str(identity))
+    except (TypeError, ValueError):
+        abort(401, description="Unknown user")
+
+    user = User.query.filter_by(id=user_uuid).first()
     if user is None:
         abort(401, description="Unknown user")
     if not user.is_active():
