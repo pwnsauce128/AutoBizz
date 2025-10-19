@@ -5,6 +5,7 @@ import { createUser, listUsers, updateUser } from '../api/client';
 const ROLE_OPTIONS = [
   { label: 'Buyer', value: 'buyer' },
   { label: 'Seller', value: 'seller' },
+  { label: 'Admin', value: 'admin' },
 ];
 
 export default function UserManagementSection({ accessToken }) {
