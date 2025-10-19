@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -49,37 +49,60 @@ function AuctionCard({ auction, onPress }) {
   );
 }
 
+const TABS = [
+  { key: 'all', label: 'All auctions', status: 'active' },
+  { key: 'participating', label: 'My bids', status: 'all', scope: 'participating' },
+];
+
 export default function AuctionListScreen({ navigation }) {
-  const { logout } = useAuth();
+  const { logout, accessToken } = useAuth();
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [activeTabKey, setActiveTabKey] = useState('all');
 
-  const loadAuctions = async (showSpinner = false) => {
-    if (showSpinner) {
-      setLoading(true);
-    }
-    try {
-      setError(null);
-      const data = await listAuctions({ status: 'active' });
-      setAuctions(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const currentTab = useMemo(
+    () => TABS.find((tab) => tab.key === activeTabKey) || TABS[0],
+    [activeTabKey],
+  );
+
+  const loadAuctions = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) {
+        setLoading(true);
+      }
+      try {
+        setError(null);
+        const params = { status: currentTab.status };
+        if (currentTab.scope) {
+          if (!accessToken) {
+            throw new Error('Log in to view auctions you have bid on.');
+          }
+          params.scope = currentTab.scope;
+          params.token = accessToken;
+        }
+        const data = await listAuctions(params);
+        setAuctions(data);
+      } catch (err) {
+        setError(err.message);
+        setAuctions([]);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [accessToken, currentTab],
+  );
 
   useEffect(() => {
     loadAuctions(true);
-  }, []);
+  }, [loadAuctions]);
 
   useFocusEffect(
     useCallback(() => {
       loadAuctions();
-    }, []),
+    }, [loadAuctions]),
   );
 
   const onRefresh = () => {
@@ -91,6 +114,11 @@ export default function AuctionListScreen({ navigation }) {
     return <LoadingOverlay />;
   }
 
+  const emptyMessage =
+    currentTab.key === 'participating'
+      ? "You haven't placed any bids yet."
+      : 'No auctions available right now.';
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -99,6 +127,24 @@ export default function AuctionListScreen({ navigation }) {
           <Text style={styles.logout}>Log out</Text>
         </Pressable>
       </View>
+      <View style={styles.tabsContainer}>
+        {TABS.map((tab) => {
+          const isActive = tab.key === currentTab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTabKey(tab.key)}
+              style={({ pressed }) => [
+                styles.tabButton,
+                isActive && styles.tabButtonActive,
+                pressed && styles.tabButtonPressed,
+              ]}
+            >
+              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{tab.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
         data={auctions}
@@ -106,9 +152,9 @@ export default function AuctionListScreen({ navigation }) {
         renderItem={({ item }) => (
           <AuctionCard auction={item} onPress={() => navigation.navigate('AuctionDetail', { id: item.id })} />
         )}
-        contentContainerStyle={auctions.length === 0 && styles.emptyContainer}
+        contentContainerStyle={auctions.length === 0 ? styles.emptyContainer : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={<Text style={styles.emptyText}>No auctions available right now.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>{emptyMessage}</Text>}
       />
     </View>
   );
@@ -138,6 +184,33 @@ const styles = StyleSheet.create({
   error: {
     color: '#d92d20',
     marginBottom: 12,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#e8ecf4',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  tabButton: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  tabButtonActive: {
+    backgroundColor: '#fff',
+  },
+  tabButtonPressed: {
+    opacity: 0.7,
+  },
+  tabLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3c4a64',
+  },
+  tabLabelActive: {
+    color: '#111827',
   },
   card: {
     backgroundColor: '#fff',

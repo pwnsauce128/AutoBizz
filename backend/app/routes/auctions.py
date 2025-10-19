@@ -6,7 +6,7 @@ from http import HTTPStatus
 import uuid
 
 from flask import Blueprint, abort, jsonify, request
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, verify_jwt_in_request
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db
@@ -35,6 +35,7 @@ auctions_bp = Blueprint("auctions", __name__)
 def list_auctions():
     status_param = request.args.get("status", AuctionStatus.ACTIVE.value)
     sort = request.args.get("sort", "fresh")
+    scope = request.args.get("scope")
 
     query = Auction.query.options(joinedload(Auction.bids))
 
@@ -44,6 +45,15 @@ def list_auctions():
         except ValueError:
             abort(HTTPStatus.BAD_REQUEST, description="Invalid status filter")
         query = query.filter_by(status=status)
+
+    if scope is not None:
+        if scope != "participating":
+            abort(HTTPStatus.BAD_REQUEST, description="Invalid scope filter")
+        verify_jwt_in_request()
+        user = get_current_user()
+        if user.role != UserRole.BUYER:
+            abort(HTTPStatus.FORBIDDEN, description="Only buyers can view this scope")
+        query = query.filter(Auction.bids.any(Bid.buyer_id == user.id))
 
     if sort == "fresh":
         query = query.order_by(Auction.start_at.desc())
