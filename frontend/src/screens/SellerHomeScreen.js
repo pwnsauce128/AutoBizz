@@ -4,7 +4,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import AdminNewAuctionForm from '../components/AdminNewAuctionForm';
 import AuctionManagementList from '../components/AuctionManagementList';
-import SellerAuctionBrowseList from '../components/SellerAuctionBrowseList';
 
 export default function SellerHomeScreen() {
   const { logout, accessToken } = useAuth();
@@ -24,8 +23,6 @@ export default function SellerHomeScreen() {
   };
 
   const showCreate = activeTab === 'create';
-  const showManage = activeTab === 'manage';
-  const showBrowse = activeTab === 'browse';
 
   return (
     <View style={styles.container}>
@@ -48,27 +45,17 @@ export default function SellerHomeScreen() {
         </Pressable>
         <Pressable
           onPress={() => setActiveTab('manage')}
-          style={[styles.tabButton, showManage && styles.tabButtonActive]}
+          style={[styles.tabButton, !showCreate && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, showManage && styles.tabLabelActive]}>My auctions</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setActiveTab('browse')}
-          style={[styles.tabButton, showBrowse && styles.tabButtonActive]}
-        >
-          <Text style={[styles.tabLabel, showBrowse && styles.tabLabelActive]}>
-            All auctions
-          </Text>
+          <Text style={[styles.tabLabel, !showCreate && styles.tabLabelActive]}>My auctions</Text>
         </Pressable>
       </View>
 
       <View style={styles.content}>
         {showCreate ? (
           <AdminNewAuctionForm onCreated={handleCreated} />
-        ) : showManage ? (
-          <AuctionManagementList mode="seller" accessToken={accessToken} refreshKey={refreshKey} />
         ) : (
-          <SellerAuctionBrowseList accessToken={accessToken} refreshKey={refreshKey} />
+          <AuctionManagementList mode="seller" accessToken={accessToken} refreshKey={refreshKey} />
         )}
       </View>
     </View>
