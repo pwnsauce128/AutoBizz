@@ -23,6 +23,7 @@ from .utils import get_current_user, role_required
 
 
 AUCTIONS_PER_PAGE = 20
+MAX_AUCTION_IMAGES = 8
 
 
 auctions_bp = Blueprint("auctions", __name__)
@@ -50,6 +51,32 @@ def list_auctions():
     return jsonify([serialize_auction_preview(auction) for auction in auctions])
 
 
+def _normalize_images(images: list[str] | None) -> list[str]:
+    """Validate and normalize the list of provided image URLs/base64 strings."""
+
+    if images is None:
+        return []
+
+    if not isinstance(images, list):
+        abort(HTTPStatus.BAD_REQUEST, description="Images must be provided as a list")
+
+    normalized: list[str] = []
+    for item in images:
+        if not item:
+            continue
+        if not isinstance(item, (str, bytes)):
+            abort(HTTPStatus.BAD_REQUEST, description="Each image must be a string value")
+        normalized.append(item.decode() if isinstance(item, bytes) else str(item))
+
+    if len(normalized) > MAX_AUCTION_IMAGES:
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            description=f"A maximum of {MAX_AUCTION_IMAGES} images is allowed per auction",
+        )
+
+    return normalized
+
+
 @auctions_bp.post("")
 @jwt_required()
 @role_required(UserRole.SELLER, UserRole.ADMIN)
@@ -60,15 +87,7 @@ def create_auction():
     description = data.get("description") or title
     min_price = data.get("min_price")
     currency = data.get("currency", "EUR")
-    images = data.get("images", [])
-
-    if not isinstance(images, list):
-        abort(HTTPStatus.BAD_REQUEST, description="Images must be provided as a list")
-
-    normalized_images = []
-    for item in images:
-        if item:
-            normalized_images.append(str(item))
+    images = _normalize_images(data.get("images", []))
 
     if not title or min_price is None:
         abort(HTTPStatus.BAD_REQUEST, description="Missing required fields")
@@ -87,7 +106,7 @@ def create_auction():
         description=description,
         min_price=min_price_value,
         currency=currency,
-        image_urls=normalized_images,
+        image_urls=images,
         status=AuctionStatus.DRAFT,
     )
     auction.activate()
@@ -134,7 +153,10 @@ def update_auction(auction_id: uuid.UUID):
     }
     for json_key, model_field in field_map.items():
         if json_key in data:
-            setattr(auction, model_field, data[json_key])
+            value = data[json_key]
+            if model_field == "image_urls":
+                value = _normalize_images(value)
+            setattr(auction, model_field, value)
 
     db.session.commit()
     return jsonify(serialize_auction_detail(auction))

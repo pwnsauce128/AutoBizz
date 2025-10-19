@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -19,10 +19,18 @@ export default function AdminNewAuctionForm({ onCreated }) {
   const { accessToken } = useAuth();
   const [title, setTitle] = useState('');
   const [minPrice, setMinPrice] = useState('');
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
   const [isSubmitting, setSubmitting] = useState(false);
 
+  const MAX_IMAGES = 8;
+  const remainingSlots = useMemo(() => MAX_IMAGES - selectedImages.length, [selectedImages.length]);
+
   const pickImage = async () => {
+    if (remainingSlots <= 0) {
+      Alert.alert('Limit reached', `You can upload up to ${MAX_IMAGES} photos per auction.`);
+      return;
+    }
+
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission required', 'Allow access to your photos to upload a vehicle picture.');
@@ -33,23 +41,41 @@ export default function AdminNewAuctionForm({ onCreated }) {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
       base64: true,
+      allowsMultipleSelection: true,
+      selectionLimit: remainingSlots,
     });
 
     if (result.canceled) {
       return;
     }
 
-    const asset = result.assets?.[0];
-    if (!asset) {
+    const assets = result.assets || [];
+    if (!assets.length) {
       return;
     }
 
-    const mimeType = asset.mimeType || 'image/jpeg';
-    const dataUrl = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
-    setSelectedImage({
-      uri: asset.uri,
-      dataUrl,
+    const mapped = assets.slice(0, remainingSlots).map((asset, index) => {
+      const mimeType = asset.mimeType || 'image/jpeg';
+      const dataUrl = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
+      const id = asset.assetId || `${asset.uri}-${Date.now()}-${index}`;
+      return {
+        id,
+        uri: asset.uri,
+        dataUrl,
+      };
     });
+
+    setSelectedImages((current) => {
+      const merged = [...current, ...mapped];
+      if (merged.length > MAX_IMAGES) {
+        return merged.slice(0, MAX_IMAGES);
+      }
+      return merged;
+    });
+  };
+
+  const removeImage = (imageId) => {
+    setSelectedImages((images) => images.filter((item) => item.id !== imageId));
   };
 
   const handleCreateAuction = async () => {
@@ -72,13 +98,13 @@ export default function AdminNewAuctionForm({ onCreated }) {
           min_price: numericMinPrice,
           description: title.trim(),
           currency: 'EUR',
-          images: selectedImage ? [selectedImage.dataUrl] : [],
+          images: selectedImages.map((item) => item.dataUrl),
         },
         accessToken,
       );
       setTitle('');
       setMinPrice('');
-      setSelectedImage(null);
+      setSelectedImages([]);
       Alert.alert('Auction created', 'The auction has been published successfully.');
       if (onCreated) {
         onCreated();
@@ -124,22 +150,31 @@ export default function AdminNewAuctionForm({ onCreated }) {
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Vehicle photo</Text>
-          {selectedImage ? (
-            <View style={styles.previewContainer}>
-              <Image source={{ uri: selectedImage.uri }} style={styles.preview} resizeMode="cover" />
-              <Pressable onPress={() => setSelectedImage(null)} style={styles.clearButton}>
-                <Text style={styles.clearLabel}>Remove photo</Text>
-              </Pressable>
+          <Text style={styles.label}>Vehicle photos</Text>
+          <Pressable
+            style={[styles.uploadButton, remainingSlots <= 0 && styles.uploadButtonDisabled]}
+            onPress={pickImage}
+            disabled={remainingSlots <= 0}
+          >
+            <Text style={styles.uploadLabel}>
+              {remainingSlots <= 0 ? 'Maximum photos added' : 'Add photos'}
+            </Text>
+          </Pressable>
+          <Text style={styles.helperSmall}>
+            You can attach up to {MAX_IMAGES} photos. {Math.max(remainingSlots, 0)} remaining.
+          </Text>
+          {selectedImages.length > 0 ? (
+            <View style={styles.previewGrid}>
+              {selectedImages.map((image) => (
+                <View key={image.id} style={styles.thumbnailWrapper}>
+                  <Image source={{ uri: image.uri }} style={styles.thumbnail} resizeMode="cover" />
+                  <Pressable style={styles.removeThumbButton} onPress={() => removeImage(image.id)}>
+                    <Text style={styles.removeThumbLabel}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
             </View>
-          ) : (
-            <Pressable style={styles.uploadButton} onPress={pickImage}>
-              <Text style={styles.uploadLabel}>Upload a photo</Text>
-            </Pressable>
-          )}
-          {selectedImage ? null : (
-            <Text style={styles.helperSmall}>Supported formats: jpg, png. The selected image is attached to the listing.</Text>
-          )}
+          ) : null}
         </View>
 
         <Pressable
@@ -202,28 +237,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#eef3ff',
   },
+  uploadButtonDisabled: {
+    opacity: 0.5,
+  },
   uploadLabel: {
     color: '#0f62fe',
     fontWeight: '600',
   },
-  previewContainer: {
-    backgroundColor: '#fff',
+  previewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+  },
+  thumbnailWrapper: {
+    width: 78,
+    height: 78,
     borderRadius: 12,
     overflow: 'hidden',
+    marginRight: 8,
+    marginBottom: 8,
+    position: 'relative',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#d0d5dd',
   },
-  preview: {
+  thumbnail: {
     width: '100%',
-    height: 200,
+    height: '100%',
   },
-  clearButton: {
-    paddingVertical: 12,
+  removeThumbButton: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(15, 98, 254, 0.9)',
     alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#d0d5dd',
+    justifyContent: 'center',
   },
-  clearLabel: {
-    color: '#d92d20',
-    fontWeight: '600',
+  removeThumbLabel: {
+    color: '#fff',
+    fontWeight: '700',
+    lineHeight: 18,
   },
   submitButton: {
     backgroundColor: '#0f62fe',
