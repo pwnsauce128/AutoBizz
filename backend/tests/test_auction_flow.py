@@ -159,3 +159,64 @@ def test_cors_headers_allow_frontend_origin(client):
     )
     assert response.status_code == 200
     assert response.headers.get("Access-Control-Allow-Origin") in {"*", origin}
+
+
+def test_seller_can_update_images_with_descriptor_payload(client):
+    ensure_admin_user(client)
+    admin_token = login_user(client, "admin", ADMIN_PASSWORD)
+
+    create_seller_response = client.post(
+        "/admin/users",
+        headers=auth_headers(admin_token),
+        json={
+            "email": "seller-edit@example.com",
+            "username": "seller-edit",
+            "role": UserRole.SELLER.value,
+            "password": SELLER_PASSWORD,
+        },
+    )
+    assert create_seller_response.status_code == 201
+
+    seller_token = login_user(client, "seller-edit", SELLER_PASSWORD)
+
+    create_response = client.post(
+        "/auctions",
+        headers=auth_headers(seller_token),
+        json={
+            "title": "Land Rover Defender",
+            "description": "Classic 110", 
+            "min_price": 35000,
+        },
+    )
+    assert create_response.status_code == 201
+    auction_id = create_response.get_json()["id"]
+
+    update_response = client.patch(
+        f"/auctions/{auction_id}",
+        headers=auth_headers(seller_token),
+        json={
+            "images": [
+                {"dataUrl": "data:image/jpeg;base64,AAAAB"},
+                {"uri": "https://example.com/defender-front.jpg"},
+                {"url": "  https://example.com/defender-rear.jpg  "},
+                "https://example.com/defender-side.jpg",
+            ]
+        },
+    )
+    assert update_response.status_code == 200
+    payload = update_response.get_json()
+    assert payload["image_urls"] == [
+        "data:image/jpeg;base64,AAAAB",
+        "https://example.com/defender-front.jpg",
+        "https://example.com/defender-rear.jpg",
+        "https://example.com/defender-side.jpg",
+    ]
+
+    single_image = client.patch(
+        f"/auctions/{auction_id}",
+        headers=auth_headers(seller_token),
+        json={"images": "https://example.com/defender-updated.jpg"},
+    )
+    assert single_image.status_code == 200
+    refreshed = single_image.get_json()
+    assert refreshed["image_urls"] == ["https://example.com/defender-updated.jpg"]
