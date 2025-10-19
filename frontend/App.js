@@ -7,6 +7,7 @@ import AuctionListScreen from './src/screens/AuctionListScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import AdminHomeScreen from './src/screens/AdminHomeScreen';
+import SellerHomeScreen from './src/screens/SellerHomeScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 const Stack = createNativeStackNavigator();
@@ -20,6 +21,15 @@ function RootNavigator() {
         role === 'admin' ? (
           <>
             <Stack.Screen name="Admin" component={AdminHomeScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="AuctionDetail"
+              component={AuctionDetailScreen}
+              options={{ title: 'Auction detail' }}
+            />
+          </>
+        ) : role === 'seller' ? (
+          <>
+            <Stack.Screen name="Seller" component={SellerHomeScreen} options={{ headerShown: false }} />
             <Stack.Screen
               name="AuctionDetail"
               component={AuctionDetailScreen}

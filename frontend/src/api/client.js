@@ -47,9 +47,20 @@ export async function login({ usernameOrEmail, password }) {
   });
 }
 
-export async function listAuctions({ status = 'active' } = {}) {
-  const query = `?status=${encodeURIComponent(status)}`;
-  return request(`/auctions${query}`);
+export async function listAuctions({ status = 'active', sort = 'fresh', scope, token } = {}) {
+  const params = new URLSearchParams();
+  if (status) {
+    params.append('status', status);
+  }
+  if (sort) {
+    params.append('sort', sort);
+  }
+  if (scope) {
+    params.append('scope', scope);
+  }
+  const query = params.toString();
+  const suffix = query ? `?${query}` : '';
+  return request(`/auctions${suffix}`, { token });
 }
 
 export async function fetchAuction(auctionId) {
@@ -72,6 +83,61 @@ export async function createAuction(data, token) {
   });
 }
 
+export async function listMyAuctions({ status = 'all' } = {}, token) {
+  const params = new URLSearchParams();
+  if (status) {
+    params.append('status', status);
+  }
+  const query = params.toString();
+  const suffix = query ? `?${query}` : '';
+  return request(`/auctions/mine${suffix}`, { token });
+}
+
+export async function listManageAuctions({ status = 'all' } = {}, token) {
+  const params = new URLSearchParams();
+  if (status) {
+    params.append('status', status);
+  }
+  const query = params.toString();
+  const suffix = query ? `?${query}` : '';
+  return request(`/auctions/manage${suffix}`, { token });
+}
+
+export async function updateAuction(auctionId, data, token) {
+  return request(`/auctions/${auctionId}`, {
+    method: 'PATCH',
+    token,
+    body: data,
+  });
+}
+
+export async function deleteAuction(auctionId, token) {
+  return request(`/auctions/${auctionId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export async function listUsers(token) {
+  return request('/admin/users', { token });
+}
+
+export async function createUser(data, token) {
+  return request('/admin/users', {
+    method: 'POST',
+    token,
+    body: data,
+  });
+}
+
+export async function updateUser(userId, data, token) {
+  return request(`/admin/users/${userId}`, {
+    method: 'PATCH',
+    token,
+    body: data,
+  });
+}
+
 export default {
   register,
   login,
@@ -79,4 +145,11 @@ export default {
   fetchAuction,
   placeBid,
   createAuction,
+  listMyAuctions,
+  listManageAuctions,
+  updateAuction,
+  deleteAuction,
+  listUsers,
+  createUser,
+  updateUser,
 };
