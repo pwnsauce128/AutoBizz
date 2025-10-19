@@ -52,26 +52,42 @@ def list_auctions():
 
 @auctions_bp.post("")
 @jwt_required()
-@role_required(UserRole.SELLER)
+@role_required(UserRole.SELLER, UserRole.ADMIN)
 def create_auction():
     user = get_current_user()
     data = request.get_json(force=True)
     title = data.get("title")
-    description = data.get("description")
+    description = data.get("description") or title
     min_price = data.get("min_price")
     currency = data.get("currency", "EUR")
     images = data.get("images", [])
 
-    if not title or not description or min_price is None:
+    if not isinstance(images, list):
+        abort(HTTPStatus.BAD_REQUEST, description="Images must be provided as a list")
+
+    normalized_images = []
+    for item in images:
+        if item:
+            normalized_images.append(str(item))
+
+    if not title or min_price is None:
         abort(HTTPStatus.BAD_REQUEST, description="Missing required fields")
+
+    try:
+        min_price_value = float(min_price)
+    except (TypeError, ValueError):
+        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be numeric")
+
+    if min_price_value <= 0:
+        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be positive")
 
     auction = Auction(
         seller_id=user.id,
         title=title,
         description=description,
-        min_price=min_price,
+        min_price=min_price_value,
         currency=currency,
-        image_urls=images,
+        image_urls=normalized_images,
         status=AuctionStatus.DRAFT,
     )
     auction.activate()
@@ -156,6 +172,7 @@ def serialize_auction_preview(auction: Auction) -> dict:
         "start_at": auction.start_at.isoformat() if auction.start_at else None,
         "end_at": auction.end_at.isoformat() if auction.end_at else None,
         "best_bid": serialize_bid(auction.bids[0]) if auction.bids else None,
+        "image_urls": auction.image_urls,
     }
 
 

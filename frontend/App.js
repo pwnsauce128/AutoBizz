@@ -6,24 +6,36 @@ import AuctionDetailScreen from './src/screens/AuctionDetailScreen';
 import AuctionListScreen from './src/screens/AuctionListScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
+import AdminHomeScreen from './src/screens/AdminHomeScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, role } = useAuth();
 
   return (
     <Stack.Navigator key={isAuthenticated ? 'app' : 'auth'}>
       {isAuthenticated ? (
-        <>
-          <Stack.Screen name="Auctions" component={AuctionListScreen} options={{ headerShown: false }} />
-          <Stack.Screen
-            name="AuctionDetail"
-            component={AuctionDetailScreen}
-            options={{ title: 'Auction detail' }}
-          />
-        </>
+        role === 'admin' ? (
+          <>
+            <Stack.Screen name="Admin" component={AdminHomeScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="AuctionDetail"
+              component={AuctionDetailScreen}
+              options={{ title: 'Auction detail' }}
+            />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Auctions" component={AuctionListScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="AuctionDetail"
+              component={AuctionDetailScreen}
+              options={{ title: 'Auction detail' }}
+            />
+          </>
+        )
       ) : (
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -14,8 +15,12 @@ import { useAuth } from '../context/AuthContext';
 
 function AuctionCard({ auction, onPress }) {
   const bestBid = auction.best_bid;
+  const previewImage = auction.image_urls && auction.image_urls[0];
   return (
     <Pressable style={styles.card} onPress={onPress}>
+      {previewImage ? (
+        <Image source={{ uri: previewImage }} style={styles.cardImage} resizeMode="cover" />
+      ) : null}
       <Text style={styles.cardTitle}>{auction.title}</Text>
       <View style={styles.cardRow}>
         <Text style={styles.cardLabel}>Minimum:</Text>
@@ -135,6 +140,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: '#e5e5e5',
   },
   cardTitle: {
     fontSize: 18,
