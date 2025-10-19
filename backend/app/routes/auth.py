@@ -73,6 +73,12 @@ def login():
         {
             "access": create_access_token(identity=str(user.id), additional_claims=additional_claims),
             "refresh": create_refresh_token(identity=str(user.id), additional_claims=additional_claims),
+            "user": {
+                "id": str(user.id),
+                "username": user.username,
+                "role": user.role.value,
+                "status": user.status.value,
+            },
         }
     )
 

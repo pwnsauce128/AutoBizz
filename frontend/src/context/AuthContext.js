@@ -14,7 +14,9 @@ function reducer(state, action) {
       return {
         accessToken: action.payload.access,
         refreshToken: action.payload.refresh,
-        role: action.payload.role || null,
+        role: action.payload.role
+          ? String(action.payload.role).toLowerCase()
+          : null,
       };
     case 'LOGOUT':
       return initialState;
