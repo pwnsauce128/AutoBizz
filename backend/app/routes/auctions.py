@@ -32,19 +32,20 @@ auctions_bp = Blueprint("auctions", __name__)
 @auctions_bp.get("")
 def list_auctions():
     status_param = request.args.get("status", AuctionStatus.ACTIVE.value)
-    try:
-        status = AuctionStatus(status_param)
-    except ValueError:
-        abort(HTTPStatus.BAD_REQUEST, description="Invalid status filter")
-
     sort = request.args.get("sort", "fresh")
 
-    query = (
-        Auction.query.options(joinedload(Auction.bids))
-        .filter_by(status=status)
-        .order_by(Auction.start_at.desc())
-    )
-    if sort != "fresh":
+    query = Auction.query.options(joinedload(Auction.bids))
+
+    if status_param != "all":
+        try:
+            status = AuctionStatus(status_param)
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Invalid status filter")
+        query = query.filter_by(status=status)
+
+    if sort == "fresh":
+        query = query.order_by(Auction.start_at.desc())
+    else:
         query = query.order_by(Auction.created_at.desc())
 
     auctions = query.limit(AUCTIONS_PER_PAGE).all()
@@ -115,6 +116,45 @@ def create_auction():
     notify_new_auction(auction)
     db.session.commit()
     return jsonify(serialize_auction_detail(auction)), HTTPStatus.CREATED
+
+
+@auctions_bp.get("/mine")
+@jwt_required()
+@role_required(UserRole.SELLER, UserRole.ADMIN)
+def list_my_auctions():
+    user = get_current_user()
+    status_param = request.args.get("status", "all")
+
+    query = Auction.query.options(joinedload(Auction.bids)).filter_by(seller_id=user.id)
+
+    if status_param != "all":
+        try:
+            status = AuctionStatus(status_param)
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Invalid status filter")
+        query = query.filter_by(status=status)
+
+    auctions = query.order_by(Auction.created_at.desc()).all()
+    return jsonify([serialize_auction_preview(auction) for auction in auctions])
+
+
+@auctions_bp.get("/manage")
+@jwt_required()
+@role_required(UserRole.ADMIN)
+def list_all_auctions():
+    status_param = request.args.get("status", "all")
+
+    query = Auction.query.options(joinedload(Auction.bids))
+
+    if status_param != "all":
+        try:
+            status = AuctionStatus(status_param)
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Invalid status filter")
+        query = query.filter_by(status=status)
+
+    auctions = query.order_by(Auction.created_at.desc()).all()
+    return jsonify([serialize_auction_preview(auction) for auction in auctions])
 
 
 @auctions_bp.get("/<uuid:auction_id>")
