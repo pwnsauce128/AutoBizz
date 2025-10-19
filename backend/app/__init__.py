@@ -1,7 +1,7 @@
 """Application factory for the AutoBet backend."""
-from datetime import timedelta
 
 from flask import Flask, jsonify
+from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
 from . import models
@@ -26,6 +26,7 @@ def create_app(config_name: str | None = None) -> Flask:
     app = Flask(__name__)
     config_class = get_config(config_name)
     app.config.from_object(config_class)
+    CORS(app, resources={r"/*": {"origins": app.config.get("CORS_ORIGINS", "*")}})
 
     if not app.config.get("JWT_SECRET_KEY"):
         msg = "JWT_SECRET_KEY must be configured for the application"

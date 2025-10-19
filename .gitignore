@@ -3,3 +3,5 @@ __pycache__/
 .env
 autobet.db
 .autobet.db
+node_modules/
+frontend/node_modules/

@@ -25,7 +25,6 @@ export default function LoginScreen({ navigation }) {
       const tokens = await loginRequest({ usernameOrEmail, password });
       const claims = parseJwt(tokens.access);
       login(tokens, { role: claims?.role ?? null });
-      navigation.replace('Auctions');
     } catch (error) {
       Alert.alert('Login failed', error.message);
     } finally {

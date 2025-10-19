@@ -14,7 +14,7 @@ function RootNavigator() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator key={isAuthenticated ? 'app' : 'auth'}>
       {isAuthenticated ? (
         <>
           <Stack.Screen name="Auctions" component={AuctionListScreen} options={{ headerShown: false }} />
