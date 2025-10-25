@@ -73,6 +73,7 @@ def place_bid(auction_id: uuid.UUID):
     bid = Bid(
         auction_id=auction_id,
         buyer_id=user.id,
+        buyer=user,
         amount=amount_decimal,
         idx_per_buyer=existing_count + 1,
     )
@@ -90,6 +91,7 @@ def serialize_bid(bid: Bid) -> dict:
         "id": str(bid.id),
         "amount": float(bid.amount),
         "buyer_id": str(bid.buyer_id),
+        "buyer_username": bid.buyer.username if bid.buyer else None,
         "created_at": bid.created_at.isoformat(),
     }
 

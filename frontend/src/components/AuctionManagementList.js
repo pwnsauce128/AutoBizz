@@ -25,14 +25,21 @@ const EMPTY_LIST_MESSAGE = {
 
 const MAX_IMAGES = 8;
 
-function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting }) {
+function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting, mode = 'seller' }) {
   const previewImage =
     (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
     (Array.isArray(auction.images) && auction.images[0]) ||
     null;
+  const bestBid = auction.best_bid;
+  const highestBidder = bestBid?.buyer_username || null;
+  const highestBidderLabel = bestBid ? highestBidder || 'Unknown bidder' : 'No bids yet';
+  const isSellerView = mode === 'seller';
+  const hasWinningBid = Boolean(bestBid && highestBidder);
+  const isExpired = auction.end_at ? new Date(auction.end_at) < new Date() : false;
+  const shouldHighlight = isSellerView && isExpired && hasWinningBid;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, shouldHighlight && styles.cardHighlighted]}>
       {previewImage ? (
         <Image source={{ uri: previewImage }} style={styles.cardImage} resizeMode="cover" />
       ) : null}
@@ -49,6 +56,12 @@ function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting }) {
         <Text style={styles.cardLabel}>Minimum price</Text>
         <Text style={styles.cardValue}>
           {auction.min_price} {auction.currency}
+        </Text>
+      </View>
+      <View style={styles.cardRow}>
+        <Text style={styles.cardLabel}>Highest bidder</Text>
+        <Text style={[styles.cardValue, !bestBid && styles.cardValueMuted]}>
+          {highestBidderLabel}
         </Text>
       </View>
       {auction.end_at ? (
@@ -310,9 +323,10 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
         onEditPress={handleEditPress}
         onDeletePress={handleDelete}
         isDeleting={deletingId === item.id}
+        mode={mode}
       />
     ),
-    [handleEditPress, handleDelete, deletingId],
+    [handleEditPress, handleDelete, deletingId, mode],
   );
 
   const keyExtractor = useCallback((item) => item.id, []);
@@ -473,6 +487,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  cardHighlighted: {
+    backgroundColor: '#e8f0ff',
+    borderWidth: 1,
+    borderColor: '#bcd4ff',
+  },
   cardImage: {
     width: '100%',
     height: 140,
@@ -514,6 +533,9 @@ const styles = StyleSheet.create({
   cardValue: {
     color: '#0f62fe',
     fontWeight: '600',
+  },
+  cardValueMuted: {
+    color: '#6f6f6f',
   },
   cardMeta: {
     color: '#6f6f6f',
