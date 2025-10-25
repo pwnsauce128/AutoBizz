@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useMemo, useReducer } from 'react';
+import { resetToLogin } from '../navigation/navigationRef';
 
 const AuthContext = createContext(null);
 
@@ -39,6 +40,7 @@ export function AuthProvider({ children }) {
       },
       logout() {
         dispatch({ type: 'LOGOUT' });
+        resetToLogin();
       },
     }),
     [state],

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -81,6 +81,7 @@ export default function AuctionListScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [activeTabKey, setActiveTabKey] = useState('all');
+  const isFirstLoadRef = useRef(true);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -92,48 +93,56 @@ export default function AuctionListScreen({ navigation }) {
   );
 
   const loadAuctions = useCallback(
-    async (showSpinner = false) => {
+    async (tab, { showSpinner = false } = {}) => {
+      if (!tab) {
+        return;
+      }
       if (showSpinner) {
         setLoading(true);
       }
       try {
         setError(null);
-        const params = { status: currentTab.status };
-        if (currentTab.scope) {
+        const params = { status: tab.status };
+        if (tab.scope) {
           if (!accessToken) {
             throw new Error('Log in to view auctions you have bid on.');
           }
-          params.scope = currentTab.scope;
+          params.scope = tab.scope;
           params.token = accessToken;
         }
         const data = await listAuctions(params);
-        const processed =
-          currentTab.key === 'all' ? data.filter((auction) => !isAuctionExpired(auction)) : data;
+        const processed = tab.key === 'all' ? data.filter((auction) => !isAuctionExpired(auction)) : data;
         setAuctions(processed);
       } catch (err) {
         setError(err.message);
         setAuctions([]);
       } finally {
-        setLoading(false);
+        if (showSpinner) {
+          setLoading(false);
+        }
         setRefreshing(false);
       }
     },
-    [accessToken, currentTab],
+    [accessToken],
   );
 
   useEffect(() => {
-    loadAuctions(true);
-  }, [loadAuctions]);
+    const shouldShowSpinner = isFirstLoadRef.current;
+    loadAuctions(currentTab, { showSpinner: shouldShowSpinner });
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+    }
+  }, [currentTab, loadAuctions]);
 
   useFocusEffect(
     useCallback(() => {
-      loadAuctions();
-    }, [loadAuctions]),
+      loadAuctions(currentTab);
+    }, [currentTab, loadAuctions]),
   );
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadAuctions();
+    loadAuctions(currentTab);
   };
 
   if (loading) {
@@ -148,12 +157,15 @@ export default function AuctionListScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Live auctions</Text>
-        <Pressable onPress={handleLogout}>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Buyer marketplace</Text>
+          <Text style={styles.subtitle}>Browse live auctions and keep track of your bids</Text>
+        </View>
+        <Pressable onPress={handleLogout} style={styles.logoutButton}>
           <Text style={styles.logout}>Log out</Text>
         </Pressable>
       </View>
-      <View style={styles.tabsContainer}>
+      <View style={styles.tabBar}>
         {TABS.map((tab) => {
           const isActive = tab.key === currentTab.key;
           return (
@@ -172,29 +184,33 @@ export default function AuctionListScreen({ navigation }) {
         })}
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <FlatList
-        data={auctions}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const expired = isAuctionExpired(item);
-          const highlight =
-            currentTab.key === 'participating' && expired
-              ? item?.best_bid?.buyer_id === userId
-                ? 'won'
-                : 'lost'
-              : null;
-          return (
-            <AuctionCard
-              auction={item}
-              highlight={highlight}
-              onPress={() => navigation.navigate('AuctionDetail', { id: item.id })}
-            />
-          );
-        }}
-        contentContainerStyle={auctions.length === 0 ? styles.emptyContainer : null}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={<Text style={styles.emptyText}>{emptyMessage}</Text>}
-      />
+      <View style={styles.content}>
+        <FlatList
+          data={auctions}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => {
+            const expired = isAuctionExpired(item);
+            const highlight =
+              currentTab.key === 'participating' && expired
+                ? item?.best_bid?.buyer_id === userId
+                  ? 'won'
+                  : 'lost'
+                : null;
+            return (
+              <AuctionCard
+                auction={item}
+                highlight={highlight}
+                onPress={() => navigation.navigate('AuctionDetail', { id: item.id })}
+              />
+            );
+          }}
+          contentContainerStyle={
+            auctions.length === 0 ? [styles.listContent, styles.emptyContainer] : styles.listContent
+          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={<Text style={styles.emptyText}>{emptyMessage}</Text>}
+        />
+      </View>
     </View>
   );
 }
@@ -203,53 +219,80 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f2f4f8',
-    paddingHorizontal: 16,
-    paddingTop: 24,
   },
   header: {
+    paddingTop: 48,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+  },
+  headerText: {
+    flex: 1,
+    marginRight: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
   },
+  subtitle: {
+    marginTop: 4,
+    color: '#4a4a4a',
+  },
+  logoutButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#ffe5e5',
+  },
   logout: {
-    color: '#ff4b4b',
+    color: '#d92d20',
     fontWeight: '600',
   },
   error: {
     color: '#d92d20',
+    marginHorizontal: 20,
     marginBottom: 12,
   },
-  tabsContainer: {
+  tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#e8ecf4',
+    backgroundColor: '#e0e5f2',
+    marginHorizontal: 20,
     borderRadius: 12,
     padding: 4,
-    marginBottom: 16,
   },
   tabButton: {
     flex: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
     alignItems: 'center',
   },
   tabButtonActive: {
     backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   tabButtonPressed: {
     opacity: 0.7,
   },
   tabLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3c4a64',
+    fontWeight: '500',
+    color: '#3d3d3d',
   },
   tabLabelActive: {
-    color: '#111827',
+    color: '#0f62fe',
+    fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+    marginTop: 16,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
   },
   card: {
     backgroundColor: '#fff',
