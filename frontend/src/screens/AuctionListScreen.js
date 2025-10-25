@@ -82,6 +82,10 @@ export default function AuctionListScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [activeTabKey, setActiveTabKey] = useState('all');
 
+  const handleLogout = useCallback(() => {
+    logout();
+  }, [logout]);
+
   const currentTab = useMemo(
     () => TABS.find((tab) => tab.key === activeTabKey) || TABS[0],
     [activeTabKey],
@@ -145,7 +149,7 @@ export default function AuctionListScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Live auctions</Text>
-        <Pressable onPress={logout}>
+        <Pressable onPress={handleLogout}>
           <Text style={styles.logout}>Log out</Text>
         </Pressable>
       </View>

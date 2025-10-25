@@ -10,6 +10,10 @@ export default function AdminHomeScreen() {
   const [activeTab, setActiveTab] = useState('users');
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const handleLogout = useCallback(() => {
+    logout();
+  }, [logout]);
+
   useFocusEffect(
     useCallback(() => {
       setActiveTab('users');
@@ -26,7 +30,7 @@ export default function AdminHomeScreen() {
           <Text style={styles.title}>Admin control center</Text>
           <Text style={styles.subtitle}>Manage platform users and oversee auctions</Text>
         </View>
-        <Pressable onPress={logout} style={styles.logoutButton}>
+        <Pressable onPress={handleLogout} style={styles.logoutButton}>
           <Text style={styles.logout}>Log out</Text>
         </Pressable>
       </View>

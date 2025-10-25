@@ -10,6 +10,10 @@ export default function SellerHomeScreen() {
   const [activeTab, setActiveTab] = useState('create');
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const handleLogout = useCallback(() => {
+    logout();
+  }, [logout]);
+
   useFocusEffect(
     useCallback(() => {
       setActiveTab('create');
@@ -31,7 +35,7 @@ export default function SellerHomeScreen() {
           <Text style={styles.title}>Seller workspace</Text>
           <Text style={styles.subtitle}>Publish new auctions and manage your listings</Text>
         </View>
-        <Pressable onPress={logout} style={styles.logoutButton}>
+        <Pressable onPress={handleLogout} style={styles.logoutButton}>
           <Text style={styles.logout}>Log out</Text>
         </Pressable>
       </View>
