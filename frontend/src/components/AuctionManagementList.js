@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  FlatList,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -86,7 +86,12 @@ function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting, mode = 's
   );
 }
 
-export default function AuctionManagementList({ mode = 'seller', accessToken, refreshKey = 0 }) {
+export default function AuctionManagementList({
+  mode = 'seller',
+  accessToken,
+  refreshKey = 0,
+  style,
+}) {
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -97,6 +102,7 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
+  const listRef = useRef(null);
   const emptyMessage = EMPTY_LIST_MESSAGE[mode] || EMPTY_LIST_MESSAGE.seller;
 
   const remainingSlots = useMemo(
@@ -121,6 +127,14 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
   useEffect(() => {
     loadAuctions();
   }, [loadAuctions, refreshKey]);
+
+  useEffect(() => {
+    if (editingId && listRef.current) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      });
+    }
+  }, [editingId]);
 
   const handleEditPress = useCallback(
     async (auctionId) => {
@@ -316,144 +330,131 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
     ]);
   };
 
-  const renderItem = useCallback(
-    ({ item }) => (
-      <AuctionRow
-        auction={item}
-        onEditPress={handleEditPress}
-        onDeletePress={handleDelete}
-        isDeleting={deletingId === item.id}
-        mode={mode}
+  const editSection = editingId ? (
+    <View style={styles.editCard}>
+      <Text style={styles.editTitle}>Edit auction</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Title"
+        value={formValues.title}
+        onChangeText={(value) => setFormValues((current) => ({ ...current, title: value }))}
       />
-    ),
-    [handleEditPress, handleDelete, deletingId, mode],
-  );
-
-  const keyExtractor = useCallback((item) => item.id, []);
-
-  const content = useMemo(() => {
-    if (loading) {
-      return <Text style={styles.helperText}>Loading auctions…</Text>;
-    }
-    if (error) {
-      return <Text style={styles.errorText}>{error}</Text>;
-    }
-    if (!auctions.length) {
-      return <Text style={styles.helperText}>{emptyMessage}</Text>;
-    }
-    return (
-      <FlatList
-        data={auctions}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={styles.listContent}
+      <TextInput
+        style={[styles.input, styles.multiline]}
+        placeholder="Description"
+        multiline
+        value={formValues.description}
+        onChangeText={(value) => setFormValues((current) => ({ ...current, description: value }))}
       />
-    );
-  }, [auctions, emptyMessage, error, keyExtractor, loading, renderItem]);
-
-  return (
-    <View style={styles.container}>
-      {content}
-      {editingId ? (
-        <View style={styles.editCard}>
-          <Text style={styles.editTitle}>Edit auction</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Title"
-            value={formValues.title}
-            onChangeText={(value) => setFormValues((current) => ({ ...current, title: value }))}
-          />
-          <TextInput
-            style={[styles.input, styles.multiline]}
-            placeholder="Description"
-            multiline
-            value={formValues.description}
-            onChangeText={(value) => setFormValues((current) => ({ ...current, description: value }))}
-          />
-          <View style={styles.imageSection}>
-            <Pressable
-              style={[styles.imageButton, remainingSlots <= 0 && styles.imageButtonDisabled]}
-              onPress={pickImages}
-              disabled={remainingSlots <= 0}
-            >
-              <Text style={styles.imageButtonLabel}>
-                {remainingSlots <= 0 ? 'Maximum photos added' : 'Add photos'}
-              </Text>
-            </Pressable>
-            <Text style={styles.imageHelper}>
-              You can attach up to {MAX_IMAGES} photos. {remainingSlots} remaining.
-            </Text>
-            {formImages.length ? (
-              <View style={styles.imageGrid}>
-                {formImages.map((image) => (
-                  <View key={image.id} style={styles.imageWrapper}>
-                    <Image source={{ uri: image.uri }} style={styles.imageThumbnail} resizeMode="cover" />
-                    <Pressable
-                      style={styles.removeImageButton}
-                      onPress={() => removeImage(image.id)}
-                    >
-                      <Text style={styles.removeImageLabel}>×</Text>
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={styles.imagePlaceholder}>No photos added yet.</Text>
-            )}
-          </View>
-          <View style={styles.carteSection}>
-            <Text style={styles.carteLabel}>Carte grise photo</Text>
-            <Pressable style={styles.carteButton} onPress={pickCarteGriseImage}>
-              <Text style={styles.carteButtonLabel}>
-                {formCarteGriseImage ? 'Replace carte grise photo' : 'Upload carte grise'}
-              </Text>
-            </Pressable>
-            <Text style={styles.carteHelper}>
-              The registration document is required for all auctions.
-            </Text>
-            {formCarteGriseImage ? (
-              <View style={styles.cartePreview}>
-                <Image
-                  source={{ uri: formCarteGriseImage.uri }}
-                  style={styles.carteImage}
-                  resizeMode="cover"
-                />
-                <Pressable
-                  style={styles.removeCarteButton}
-                  onPress={() => setFormCarteGriseImage(null)}
-                >
+      <View style={styles.imageSection}>
+        <Pressable
+          style={[styles.imageButton, remainingSlots <= 0 && styles.imageButtonDisabled]}
+          onPress={pickImages}
+          disabled={remainingSlots <= 0}
+        >
+          <Text style={styles.imageButtonLabel}>
+            {remainingSlots <= 0 ? 'Maximum photos added' : 'Add photos'}
+          </Text>
+        </Pressable>
+        <Text style={styles.imageHelper}>
+          You can attach up to {MAX_IMAGES} photos. {remainingSlots} remaining.
+        </Text>
+        {formImages.length ? (
+          <View style={styles.imageGrid}>
+            {formImages.map((image) => (
+              <View key={image.id} style={styles.imageWrapper}>
+                <Image source={{ uri: image.uri }} style={styles.imageThumbnail} resizeMode="cover" />
+                <Pressable style={styles.removeImageButton} onPress={() => removeImage(image.id)}>
                   <Text style={styles.removeImageLabel}>×</Text>
                 </Pressable>
               </View>
-            ) : (
-              <Text style={styles.cartePlaceholder}>No carte grise uploaded yet.</Text>
-            )}
+            ))}
           </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Minimum price"
-            keyboardType="decimal-pad"
-            value={formValues.min_price}
-            onChangeText={(value) => setFormValues((current) => ({ ...current, min_price: value }))}
-          />
-          <View style={styles.editActions}>
-            <Pressable
-              onPress={cancelEdit}
-              style={({ pressed }) => [styles.cancelButton, pressed && styles.actionButtonPressed]}
-              disabled={saving}
-            >
-              <Text style={styles.cancelLabel}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleSave}
-              style={({ pressed }) => [styles.saveButton, pressed && styles.saveButtonPressed]}
-              disabled={saving}
-            >
-              <Text style={styles.saveLabel}>{saving ? 'Saving…' : 'Save changes'}</Text>
+        ) : (
+          <Text style={styles.imagePlaceholder}>No photos added yet.</Text>
+        )}
+      </View>
+      <View style={styles.carteSection}>
+        <Text style={styles.carteLabel}>Carte grise photo</Text>
+        <Pressable style={styles.carteButton} onPress={pickCarteGriseImage}>
+          <Text style={styles.carteButtonLabel}>
+            {formCarteGriseImage ? 'Replace carte grise photo' : 'Upload carte grise'}
+          </Text>
+        </Pressable>
+        <Text style={styles.carteHelper}>
+          The registration document is required for all auctions.
+        </Text>
+        {formCarteGriseImage ? (
+          <View style={styles.cartePreview}>
+            <Image source={{ uri: formCarteGriseImage.uri }} style={styles.carteImage} resizeMode="cover" />
+            <Pressable style={styles.removeCarteButton} onPress={() => setFormCarteGriseImage(null)}>
+              <Text style={styles.removeImageLabel}>×</Text>
             </Pressable>
           </View>
-        </View>
-      ) : null}
+        ) : (
+          <Text style={styles.cartePlaceholder}>No carte grise uploaded yet.</Text>
+        )}
+      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Minimum price"
+        keyboardType="decimal-pad"
+        value={formValues.min_price}
+        onChangeText={(value) => setFormValues((current) => ({ ...current, min_price: value }))}
+      />
+      <View style={styles.editActions}>
+        <Pressable
+          onPress={cancelEdit}
+          style={({ pressed }) => [styles.cancelButton, pressed && styles.actionButtonPressed]}
+          disabled={saving}
+        >
+          <Text style={styles.cancelLabel}>Cancel</Text>
+        </Pressable>
+        <Pressable
+          onPress={handleSave}
+          style={({ pressed }) => [styles.saveButton, pressed && styles.saveButtonPressed]}
+          disabled={saving}
+        >
+          <Text style={styles.saveLabel}>{saving ? 'Saving…' : 'Save changes'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  ) : null;
+
+  return (
+    <View style={[styles.container, style]}>
+      {loading ? (
+        <Text style={styles.helperText}>Loading auctions…</Text>
+      ) : error ? (
+        <Text style={styles.errorText}>{error}</Text>
+      ) : (
+        <ScrollView
+          ref={listRef}
+          style={styles.list}
+          contentContainerStyle={[
+            styles.listContent,
+            !auctions.length && styles.listContentEmpty,
+            editingId && styles.listContentEditing,
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          {auctions.length ? (
+            auctions.map((item) => (
+              <AuctionRow
+                key={item.id}
+                auction={item}
+                onEditPress={handleEditPress}
+                onDeletePress={handleDelete}
+                isDeleting={deletingId === item.id}
+                mode={mode}
+              />
+            ))
+          ) : (
+            <Text style={styles.helperText}>{emptyMessage}</Text>
+          )}
+          {editSection}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -463,6 +464,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingBottom: 24,
+  },
+  list: {
+    flex: 1,
   },
   helperText: {
     textAlign: 'center',
@@ -476,6 +480,12 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 24,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
+  },
+  listContentEditing: {
+    paddingBottom: 40,
   },
   card: {
     backgroundColor: '#fff',
