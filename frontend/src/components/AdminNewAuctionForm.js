@@ -21,6 +21,7 @@ export default function AdminNewAuctionForm({ onCreated }) {
   const [minPrice, setMinPrice] = useState('');
   const [description, setDescription] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
+  const [carteGriseImage, setCarteGriseImage] = useState(null);
   const [isSubmitting, setSubmitting] = useState(false);
 
   const MAX_IMAGES = 8;
@@ -79,6 +80,35 @@ export default function AdminNewAuctionForm({ onCreated }) {
     setSelectedImages((images) => images.filter((item) => item.id !== imageId));
   };
 
+  const pickCarteGriseImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Allow photo access to upload the carte grise.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true,
+      allowsMultipleSelection: false,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets && result.assets[0];
+    if (!asset) {
+      return;
+    }
+
+    const mimeType = asset.mimeType || 'image/jpeg';
+    const dataUrl = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
+    const id = asset.assetId || `${asset.uri}-${Date.now()}`;
+    setCarteGriseImage({ id, uri: asset.uri, dataUrl });
+  };
+
   const handleCreateAuction = async () => {
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
@@ -99,6 +129,11 @@ export default function AdminNewAuctionForm({ onCreated }) {
       return;
     }
 
+    if (!carteGriseImage) {
+      Alert.alert('Carte grise required', 'Upload the vehicle carte grise before publishing.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await createAuction(
@@ -108,6 +143,7 @@ export default function AdminNewAuctionForm({ onCreated }) {
           min_price: numericMinPrice,
           currency: 'EUR',
           images: selectedImages.map((item) => item.dataUrl),
+          carte_grise_image: carteGriseImage.dataUrl,
         },
         accessToken,
       );
@@ -115,6 +151,7 @@ export default function AdminNewAuctionForm({ onCreated }) {
       setMinPrice('');
       setDescription('');
       setSelectedImages([]);
+      setCarteGriseImage(null);
       Alert.alert('Auction created', 'The auction has been published successfully.');
       if (onCreated) {
         onCreated();
@@ -195,6 +232,26 @@ export default function AdminNewAuctionForm({ onCreated }) {
                   </Pressable>
                 </View>
               ))}
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Carte grise photo</Text>
+          <Pressable style={styles.uploadButton} onPress={pickCarteGriseImage}>
+            <Text style={styles.uploadLabel}>
+              {carteGriseImage ? 'Replace carte grise photo' : 'Upload carte grise'}
+            </Text>
+          </Pressable>
+          <Text style={styles.helperSmall}>
+            Add a clear photo of the vehicle registration document.
+          </Text>
+          {carteGriseImage ? (
+            <View style={styles.cartePreview}>
+              <Image source={{ uri: carteGriseImage.uri }} style={styles.carteImage} resizeMode="cover" />
+              <Pressable style={styles.removeThumbButton} onPress={() => setCarteGriseImage(null)}>
+                <Text style={styles.removeThumbLabel}>×</Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
@@ -321,5 +378,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  cartePreview: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#d0d5dd',
+    backgroundColor: '#fff',
+  },
+  carteImage: {
+    width: 200,
+    height: 140,
   },
 });

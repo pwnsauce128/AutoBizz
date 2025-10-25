@@ -76,11 +76,13 @@ def test_seller_can_create_and_buyer_can_bid(client):
             "min_price": 50000,
             "currency": "EUR",
             "images": ["https://example.com/car.jpg"],
+            "carte_grise_image": "https://example.com/carte-grise.jpg",
         },
     )
     assert create_response.status_code == 201
     auction_data = create_response.get_json()
     auction_id = auction_data["id"]
+    assert auction_data["carte_grise_image_url"] == "https://example.com/carte-grise.jpg"
 
     buyer_token = login_user(client, "buyer1", BUYER_PASSWORD)
 
@@ -124,7 +126,12 @@ def test_buyer_cannot_exceed_bid_limit(client):
     auction_resp = client.post(
         "/auctions",
         headers=auth_headers(seller_token),
-        json={"title": "Renault 5", "description": "Classic", "min_price": 1000},
+        json={
+            "title": "Renault 5",
+            "description": "Classic",
+            "min_price": 1000,
+            "carte_grise_image": "https://example.com/carte-grise-renault.jpg",
+        },
     )
     auction_id = auction_resp.get_json()["id"]
 
@@ -161,6 +168,38 @@ def test_cors_headers_allow_frontend_origin(client):
     assert response.headers.get("Access-Control-Allow-Origin") in {"*", origin}
 
 
+def test_create_auction_requires_carte_grise_image(client):
+    ensure_admin_user(client)
+    admin_token = login_user(client, "admin", ADMIN_PASSWORD)
+
+    create_seller_response = client.post(
+        "/admin/users",
+        headers=auth_headers(admin_token),
+        json={
+            "email": "seller-no-carte@example.com",
+            "username": "seller-no-carte",
+            "role": UserRole.SELLER.value,
+            "password": SELLER_PASSWORD,
+        },
+    )
+    assert create_seller_response.status_code == 201
+
+    seller_token = login_user(client, "seller-no-carte", SELLER_PASSWORD)
+
+    create_response = client.post(
+        "/auctions",
+        headers=auth_headers(seller_token),
+        json={
+            "title": "Missing Carte Grise",
+            "description": "Should fail",
+            "min_price": 5000,
+        },
+    )
+    assert create_response.status_code == 400
+    message = create_response.get_json()["message"].lower()
+    assert "carte" in message
+
+
 def test_seller_can_update_images_with_descriptor_payload(client):
     ensure_admin_user(client)
     admin_token = login_user(client, "admin", ADMIN_PASSWORD)
@@ -184,8 +223,9 @@ def test_seller_can_update_images_with_descriptor_payload(client):
         headers=auth_headers(seller_token),
         json={
             "title": "Land Rover Defender",
-            "description": "Classic 110", 
+            "description": "Classic 110",
             "min_price": 35000,
+            "carte_grise_image": "https://example.com/carte-grise-defender.jpg",
         },
     )
     assert create_response.status_code == 201
