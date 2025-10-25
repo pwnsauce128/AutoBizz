@@ -37,7 +37,9 @@ def list_auctions():
     sort = request.args.get("sort", "fresh")
     scope = request.args.get("scope")
 
-    query = Auction.query.options(joinedload(Auction.bids))
+    bid_join = joinedload(Auction.bids).joinedload(Bid.buyer)
+
+    query = Auction.query.options(bid_join)
 
     if status_param != "all":
         try:
@@ -217,7 +219,10 @@ def list_my_auctions():
     user = get_current_user()
     status_param = request.args.get("status", "all")
 
-    query = Auction.query.options(joinedload(Auction.bids)).filter_by(seller_id=user.id)
+    query = (
+        Auction.query.options(joinedload(Auction.bids).joinedload(Bid.buyer))
+        .filter_by(seller_id=user.id)
+    )
 
     if status_param != "all":
         try:
@@ -236,7 +241,7 @@ def list_my_auctions():
 def list_all_auctions():
     status_param = request.args.get("status", "all")
 
-    query = Auction.query.options(joinedload(Auction.bids))
+    query = Auction.query.options(joinedload(Auction.bids).joinedload(Bid.buyer))
 
     if status_param != "all":
         try:
@@ -251,7 +256,11 @@ def list_all_auctions():
 
 @auctions_bp.get("/<uuid:auction_id>")
 def get_auction(auction_id: uuid.UUID):
-    auction = Auction.query.options(joinedload(Auction.bids)).filter_by(id=auction_id).first()
+    auction = (
+        Auction.query.options(joinedload(Auction.bids).joinedload(Bid.buyer))
+        .filter_by(id=auction_id)
+        .first()
+    )
     if auction is None:
         abort(HTTPStatus.NOT_FOUND, description="Auction not found")
     return jsonify(serialize_auction_detail(auction))
@@ -261,7 +270,11 @@ def get_auction(auction_id: uuid.UUID):
 @jwt_required()
 def update_auction(auction_id: uuid.UUID):
     user = get_current_user()
-    auction = Auction.query.options(joinedload(Auction.bids)).filter_by(id=auction_id).first()
+    auction = (
+        Auction.query.options(joinedload(Auction.bids).joinedload(Bid.buyer))
+        .filter_by(id=auction_id)
+        .first()
+    )
     if auction is None:
         abort(HTTPStatus.NOT_FOUND, description="Auction not found")
 
@@ -319,7 +332,11 @@ def update_auction(auction_id: uuid.UUID):
 @jwt_required()
 def delete_auction(auction_id: uuid.UUID):
     user = get_current_user()
-    auction = Auction.query.options(joinedload(Auction.bids)).filter_by(id=auction_id).first()
+    auction = (
+        Auction.query.options(joinedload(Auction.bids).joinedload(Bid.buyer))
+        .filter_by(id=auction_id)
+        .first()
+    )
     if auction is None:
         abort(HTTPStatus.NOT_FOUND, description="Auction not found")
 
@@ -371,6 +388,7 @@ def serialize_bid(bid: Bid) -> dict:
         "id": str(bid.id),
         "amount": float(bid.amount),
         "buyer_id": str(bid.buyer_id),
+        "buyer_username": bid.buyer.username if bid.buyer else None,
         "created_at": bid.created_at.isoformat(),
     }
 

@@ -94,11 +94,13 @@ def test_seller_can_create_and_buyer_can_bid(client):
     assert bid_response.status_code == 201
     bid_data = bid_response.get_json()["bid"]
     assert bid_data["amount"] == 51000.0
+    assert bid_data["buyer_username"] == "buyer1"
 
     list_response = client.get("/auctions")
     assert list_response.status_code == 200
     listings = list_response.get_json()
     assert listings[0]["best_bid"]["amount"] == 51000.0
+    assert listings[0]["best_bid"]["buyer_username"] == "buyer1"
 
     notifications = Notification.query.all()
     assert any(n.type == NotificationType.NEW_AUCTION for n in notifications)
