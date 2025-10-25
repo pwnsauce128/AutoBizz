@@ -190,6 +190,9 @@ export default function AuctionListScreen({ navigation }) {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             const expired = isAuctionExpired(item);
+            if (currentTab.key === 'all' && expired) {
+              return null;
+            }
             const highlight =
               currentTab.key === 'participating' && expired
                 ? item?.best_bid?.buyer_id === userId
