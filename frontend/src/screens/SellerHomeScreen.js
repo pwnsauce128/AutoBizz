@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import useLogoutHandler from '../hooks/useLogoutHandler';
 import AdminNewAuctionForm from '../components/AdminNewAuctionForm';
 import AuctionManagementList from '../components/AuctionManagementList';
 
@@ -9,6 +10,8 @@ export default function SellerHomeScreen() {
   const { logout, accessToken } = useAuth();
   const [activeTab, setActiveTab] = useState('create');
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleLogout = useLogoutHandler(logout);
 
   useFocusEffect(
     useCallback(() => {
@@ -31,7 +34,7 @@ export default function SellerHomeScreen() {
           <Text style={styles.title}>Seller workspace</Text>
           <Text style={styles.subtitle}>Publish new auctions and manage your listings</Text>
         </View>
-        <Pressable onPress={logout} style={styles.logoutButton}>
+        <Pressable onPress={handleLogout} style={styles.logoutButton}>
           <Text style={styles.logout}>Log out</Text>
         </Pressable>
       </View>

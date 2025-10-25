@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -9,11 +9,18 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import AdminHomeScreen from './src/screens/AdminHomeScreen';
 import SellerHomeScreen from './src/screens/SellerHomeScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { navigationRef, resetToLogin } from './src/navigation/navigationRef';
 
 const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
   const { isAuthenticated, role } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      resetToLogin();
+    }
+  }, [isAuthenticated]);
 
   return (
     <Stack.Navigator key={isAuthenticated ? 'app' : 'auth'}>
@@ -59,7 +66,7 @@ function RootNavigator() {
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <StatusBar style="dark" />
         <RootNavigator />
       </NavigationContainer>

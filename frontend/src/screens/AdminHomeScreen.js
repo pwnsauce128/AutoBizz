@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import useLogoutHandler from '../hooks/useLogoutHandler';
 import AuctionManagementList from '../components/AuctionManagementList';
 import UserManagementSection from '../components/UserManagementSection';
 
@@ -9,6 +10,8 @@ export default function AdminHomeScreen() {
   const { logout, accessToken } = useAuth();
   const [activeTab, setActiveTab] = useState('users');
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleLogout = useLogoutHandler(logout);
 
   useFocusEffect(
     useCallback(() => {
@@ -26,7 +29,7 @@ export default function AdminHomeScreen() {
           <Text style={styles.title}>Admin control center</Text>
           <Text style={styles.subtitle}>Manage platform users and oversee auctions</Text>
         </View>
-        <Pressable onPress={logout} style={styles.logoutButton}>
+        <Pressable onPress={handleLogout} style={styles.logoutButton}>
           <Text style={styles.logout}>Log out</Text>
         </Pressable>
       </View>
