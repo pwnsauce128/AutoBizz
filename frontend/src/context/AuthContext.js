@@ -6,6 +6,7 @@ const initialState = {
   accessToken: null,
   refreshToken: null,
   role: null,
+  userId: null,
 };
 
 function reducer(state, action) {
@@ -17,6 +18,7 @@ function reducer(state, action) {
         role: action.payload.role
           ? String(action.payload.role).toLowerCase()
           : null,
+        userId: action.payload.userId || action.payload.sub || null,
       };
     case 'LOGOUT':
       return initialState;
