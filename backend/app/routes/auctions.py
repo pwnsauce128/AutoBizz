@@ -122,6 +122,20 @@ def _normalize_images(images: object) -> list[str]:
     return normalized
 
 
+def _normalize_single_image(image: object, field: str) -> str:
+    """Validate a single image payload."""
+
+    images = _normalize_images(image)
+    if not images:
+        abort(HTTPStatus.BAD_REQUEST, description=f"Missing {field}")
+    if len(images) > 1:
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            description=f"Only one {field} can be provided",
+        )
+    return images[0]
+
+
 def _sanitize_text(value: object, field: str, *, allow_empty: bool = False) -> str:
     if value is None:
         if allow_empty:
@@ -173,6 +187,10 @@ def create_auction():
     min_price_value = _parse_price(data.get("min_price"))
     currency = _normalize_currency(data.get("currency", "EUR"))
     images = _normalize_images(data.get("images", []))
+    carte_grise_image = _normalize_single_image(
+        data.get("carte_grise_image") or data.get("carte_grise_url"),
+        "carte grise image",
+    )
 
     auction = Auction(
         seller_id=user.id,
@@ -181,6 +199,7 @@ def create_auction():
         min_price=min_price_value,
         currency=currency,
         image_urls=images,
+        carte_grise_image_url=carte_grise_image,
         status=AuctionStatus.DRAFT,
     )
     auction.activate()
@@ -279,6 +298,16 @@ def update_auction(auction_id: uuid.UUID):
         auction.image_urls = _normalize_images(payload)
         updates_applied = True
 
+    if "carte_grise_image" in data or "carte_grise_url" in data:
+        payload = data.get("carte_grise_image")
+        if payload is None:
+            payload = data.get("carte_grise_url")
+        auction.carte_grise_image_url = _normalize_single_image(
+            payload,
+            "carte grise image",
+        )
+        updates_applied = True
+
     if not updates_applied:
         abort(HTTPStatus.BAD_REQUEST, description="No valid updates provided")
 
@@ -320,6 +349,7 @@ def serialize_auction_preview(auction: Auction) -> dict:
         "end_at": auction.end_at.isoformat() if auction.end_at else None,
         "best_bid": serialize_bid(auction.bids[0]) if auction.bids else None,
         "image_urls": auction.image_urls,
+        "carte_grise_image_url": auction.carte_grise_image_url,
     }
 
 
@@ -330,6 +360,7 @@ def serialize_auction_detail(auction: Auction) -> dict:
             "description": auction.description,
             "image_urls": auction.image_urls,
             "seller_id": str(auction.seller_id),
+            "carte_grise_image_url": auction.carte_grise_image_url,
         }
     )
     return data
