@@ -13,14 +13,21 @@ import { listAuctions } from '../api/client';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
 
-function AuctionCard({ auction, onPress }) {
-  const bestBid = auction.best_bid;
+function AuctionCard({ auction, onPress, highlight }) {
   const previewImage =
     (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
     (Array.isArray(auction.images) && auction.images[0]) ||
     null;
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        highlight === 'won' && styles.cardHighlightWon,
+        highlight === 'lost' && styles.cardHighlightLost,
+        pressed && styles.cardPressed,
+      ]}
+      onPress={onPress}
+    >
       {previewImage ? (
         <Image source={{ uri: previewImage }} style={styles.cardImage} resizeMode="cover" />
       ) : null}
@@ -36,17 +43,30 @@ function AuctionCard({ auction, onPress }) {
           {auction.min_price} {auction.currency}
         </Text>
       </View>
-      <View style={styles.cardRow}>
-        <Text style={styles.cardLabel}>Best bid:</Text>
-        <Text style={styles.cardValue}>
-          {bestBid ? `${bestBid.amount} ${auction.currency}` : 'No bids yet'}
-        </Text>
-      </View>
       {auction.end_at ? (
         <Text style={styles.cardMeta}>Ends at {new Date(auction.end_at).toLocaleString()}</Text>
       ) : null}
     </Pressable>
   );
+}
+
+function isAuctionExpired(auction) {
+  if (!auction) {
+    return false;
+  }
+
+  if (auction.status && auction.status !== 'active') {
+    return true;
+  }
+
+  if (auction.end_at) {
+    const endAt = new Date(auction.end_at).getTime();
+    if (!Number.isNaN(endAt) && endAt <= Date.now()) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 const TABS = [
@@ -55,7 +75,7 @@ const TABS = [
 ];
 
 export default function AuctionListScreen({ navigation }) {
-  const { logout, accessToken } = useAuth();
+  const { logout, accessToken, userId } = useAuth();
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,7 +103,9 @@ export default function AuctionListScreen({ navigation }) {
           params.token = accessToken;
         }
         const data = await listAuctions(params);
-        setAuctions(data);
+        const processed =
+          currentTab.key === 'all' ? data.filter((auction) => !isAuctionExpired(auction)) : data;
+        setAuctions(processed);
       } catch (err) {
         setError(err.message);
         setAuctions([]);
@@ -149,9 +171,22 @@ export default function AuctionListScreen({ navigation }) {
       <FlatList
         data={auctions}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <AuctionCard auction={item} onPress={() => navigation.navigate('AuctionDetail', { id: item.id })} />
-        )}
+        renderItem={({ item }) => {
+          const expired = isAuctionExpired(item);
+          const highlight =
+            currentTab.key === 'participating' && expired
+              ? item?.best_bid?.buyer_id === userId
+                ? 'won'
+                : 'lost'
+              : null;
+          return (
+            <AuctionCard
+              auction={item}
+              highlight={highlight}
+              onPress={() => navigation.navigate('AuctionDetail', { id: item.id })}
+            />
+          );
+        }}
         contentContainerStyle={auctions.length === 0 ? styles.emptyContainer : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={<Text style={styles.emptyText}>{emptyMessage}</Text>}
@@ -221,6 +256,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardPressed: {
+    opacity: 0.95,
+  },
+  cardHighlightWon: {
+    backgroundColor: '#e6f4ea',
+    borderWidth: 1,
+    borderColor: '#34a853',
+  },
+  cardHighlightLost: {
+    backgroundColor: '#fdecec',
+    borderWidth: 1,
+    borderColor: '#d93025',
   },
   cardImage: {
     width: '100%',

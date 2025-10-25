@@ -142,8 +142,12 @@ export default function AuctionDetailScreen({ route }) {
         <Text style={styles.meta}>Ends at {new Date(auction.end_at).toLocaleString()}</Text>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Current best bid</Text>
-      <BidSummary auction={auction} />
+      {!isBuyer ? (
+        <>
+          <Text style={styles.sectionTitle}>Current best bid</Text>
+          <BidSummary auction={auction} />
+        </>
+      ) : null}
 
       {canBid ? (
         <View style={styles.bidBox}>
