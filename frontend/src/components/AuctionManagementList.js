@@ -339,6 +339,21 @@ export default function AuctionManagementList({
         value={formValues.title}
         onChangeText={(value) => setFormValues((current) => ({ ...current, title: value }))}
       />
+    ),
+    [handleEditPress, handleDelete, deletingId, mode],
+  );
+
+  const keyExtractor = useCallback((item) => item.id, []);
+
+  const editSection = editingId ? (
+    <View style={styles.editCard}>
+      <Text style={styles.editTitle}>Edit auction</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Title"
+        value={formValues.title}
+        onChangeText={(value) => setFormValues((current) => ({ ...current, title: value }))}
+      />
       <TextInput
         style={[styles.input, styles.multiline]}
         placeholder="Description"
@@ -428,32 +443,21 @@ export default function AuctionManagementList({
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : (
-        <ScrollView
+        <FlatList
           ref={listRef}
+          data={auctions}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           style={styles.list}
           contentContainerStyle={[
             styles.listContent,
             !auctions.length && styles.listContentEmpty,
             editingId && styles.listContentEditing,
           ]}
+          ListEmptyComponent={<Text style={styles.helperText}>{emptyMessage}</Text>}
+          ListFooterComponent={editSection}
           keyboardShouldPersistTaps="handled"
-        >
-          {auctions.length ? (
-            auctions.map((item) => (
-              <AuctionRow
-                key={item.id}
-                auction={item}
-                onEditPress={handleEditPress}
-                onDeletePress={handleDelete}
-                isDeleting={deletingId === item.id}
-                mode={mode}
-              />
-            ))
-          ) : (
-            <Text style={styles.helperText}>{emptyMessage}</Text>
-          )}
-          {editSection}
-        </ScrollView>
+        />
       )}
     </View>
   );
