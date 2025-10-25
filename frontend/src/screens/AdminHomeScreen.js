@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import AuctionManagementList from '../components/AuctionManagementList';
@@ -54,7 +54,18 @@ export default function AdminHomeScreen() {
         {showUsers ? (
           <UserManagementSection accessToken={accessToken} />
         ) : (
-          <AuctionManagementList mode="admin" accessToken={accessToken} refreshKey={refreshKey} />
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoider}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+          >
+            <AuctionManagementList
+              mode="admin"
+              accessToken={accessToken}
+              refreshKey={refreshKey}
+              style={styles.auctionsList}
+            />
+          </KeyboardAvoidingView>
         )}
       </View>
     </View>
@@ -127,5 +138,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     marginTop: 16,
+  },
+  keyboardAvoider: {
+    flex: 1,
+  },
+  auctionsList: {
+    paddingBottom: 32,
   },
 });
