@@ -80,6 +80,7 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
   const [editingId, setEditingId] = useState(null);
   const [formValues, setFormValues] = useState({ title: '', description: '', min_price: '' });
   const [formImages, setFormImages] = useState([]);
+  const [formCarteGriseImage, setFormCarteGriseImage] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -130,6 +131,15 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
             dataUrl: url,
           })),
         );
+        if (detail.carte_grise_image_url) {
+          setFormCarteGriseImage({
+            id: `${detail.carte_grise_image_url}-carte`,
+            uri: detail.carte_grise_image_url,
+            dataUrl: detail.carte_grise_image_url,
+          });
+        } else {
+          setFormCarteGriseImage(null);
+        }
       } catch (err) {
         Alert.alert('Unable to load auction', err.message);
       }
@@ -141,6 +151,7 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
     setEditingId(null);
     setFormValues({ title: '', description: '', min_price: '' });
     setFormImages([]);
+    setFormCarteGriseImage(null);
   };
 
   const pickImages = useCallback(async () => {
@@ -196,6 +207,35 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
     setFormImages((images) => images.filter((item) => item.id !== imageId));
   }, []);
 
+  const pickCarteGriseImage = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Allow photo access to upload the carte grise.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true,
+      allowsMultipleSelection: false,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets && result.assets[0];
+    if (!asset) {
+      return;
+    }
+
+    const mimeType = asset.mimeType || 'image/jpeg';
+    const dataUrl = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
+    const id = asset.assetId || `${asset.uri}-${Date.now()}`;
+    setFormCarteGriseImage({ id, uri: asset.uri, dataUrl });
+  }, []);
+
   const handleSave = async () => {
     if (!editingId) {
       return;
@@ -214,6 +254,11 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
       return;
     }
 
+    if (!formCarteGriseImage) {
+      Alert.alert('Carte grise required', 'Upload the carte grise before saving changes.');
+      return;
+    }
+
     setSaving(true);
     try {
       await updateAuction(
@@ -223,6 +268,7 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
           description: formValues.description.trim(),
           min_price: numericPrice,
           images: formImages.map((item) => item.dataUrl),
+          carte_grise_image: formCarteGriseImage.dataUrl,
         },
         accessToken,
       );
@@ -339,6 +385,34 @@ export default function AuctionManagementList({ mode = 'seller', accessToken, re
               </View>
             ) : (
               <Text style={styles.imagePlaceholder}>No photos added yet.</Text>
+            )}
+          </View>
+          <View style={styles.carteSection}>
+            <Text style={styles.carteLabel}>Carte grise photo</Text>
+            <Pressable style={styles.carteButton} onPress={pickCarteGriseImage}>
+              <Text style={styles.carteButtonLabel}>
+                {formCarteGriseImage ? 'Replace carte grise photo' : 'Upload carte grise'}
+              </Text>
+            </Pressable>
+            <Text style={styles.carteHelper}>
+              The registration document is required for all auctions.
+            </Text>
+            {formCarteGriseImage ? (
+              <View style={styles.cartePreview}>
+                <Image
+                  source={{ uri: formCarteGriseImage.uri }}
+                  style={styles.carteImage}
+                  resizeMode="cover"
+                />
+                <Pressable
+                  style={styles.removeCarteButton}
+                  onPress={() => setFormCarteGriseImage(null)}
+                >
+                  <Text style={styles.removeImageLabel}>×</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Text style={styles.cartePlaceholder}>No carte grise uploaded yet.</Text>
             )}
           </View>
           <TextInput
@@ -562,6 +636,61 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     lineHeight: 18,
+  },
+  carteSection: {
+    marginBottom: 16,
+  },
+  carteLabel: {
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  carteButton: {
+    borderWidth: 1,
+    borderColor: '#0f62fe',
+    borderRadius: 10,
+    borderStyle: 'dashed',
+    paddingVertical: 18,
+    alignItems: 'center',
+    backgroundColor: '#eef3ff',
+  },
+  carteButtonLabel: {
+    color: '#0f62fe',
+    fontWeight: '600',
+  },
+  carteHelper: {
+    marginTop: 6,
+    color: '#6f6f6f',
+    fontSize: 12,
+  },
+  cartePreview: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#d0d5dd',
+    backgroundColor: '#fff',
+  },
+  carteImage: {
+    width: 200,
+    height: 140,
+  },
+  removeCarteButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(15, 98, 254, 0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartePlaceholder: {
+    marginTop: 10,
+    color: '#6f6f6f',
+    fontSize: 12,
   },
   imagePlaceholder: {
     marginTop: 10,

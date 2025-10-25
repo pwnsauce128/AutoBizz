@@ -98,6 +98,7 @@ export default function AuctionDetailScreen({ route }) {
     (Array.isArray(auction.images) && auction.images) ||
     [];
   const heroImage = imageUrls[activeImageIndex] || imageUrls[0];
+  const carteGriseImage = auction.carte_grise_image_url;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -120,6 +121,19 @@ export default function AuctionDetailScreen({ route }) {
               </Pressable>
             );
           })}
+        </View>
+      ) : null}
+      {carteGriseImage ? (
+        <View style={styles.documentSection}>
+          <Text style={styles.sectionTitle}>Carte grise</Text>
+          <Text style={styles.documentHelper}>
+            Seller provided the vehicle registration document.
+          </Text>
+          <Image
+            source={{ uri: carteGriseImage }}
+            style={styles.documentImage}
+            resizeMode="cover"
+          />
         </View>
       ) : null}
       <Text style={styles.meta}>Minimum price: {auction.min_price} {auction.currency}</Text>
@@ -272,6 +286,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  documentSection: {
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  documentHelper: {
+    color: '#4a4a4a',
+  },
+  documentImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: '#e5e5e5',
+    marginTop: 12,
   },
   info: {
     marginTop: 24,
