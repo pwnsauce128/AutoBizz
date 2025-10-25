@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  FlatList,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -330,14 +330,14 @@ export default function AuctionManagementList({
     ]);
   };
 
-  const renderItem = useCallback(
-    ({ item }) => (
-      <AuctionRow
-        auction={item}
-        onEditPress={handleEditPress}
-        onDeletePress={handleDelete}
-        isDeleting={deletingId === item.id}
-        mode={mode}
+  const editSection = editingId ? (
+    <View style={styles.editCard}>
+      <Text style={styles.editTitle}>Edit auction</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Title"
+        value={formValues.title}
+        onChangeText={(value) => setFormValues((current) => ({ ...current, title: value }))}
       />
     ),
     [handleEditPress, handleDelete, deletingId, mode],
