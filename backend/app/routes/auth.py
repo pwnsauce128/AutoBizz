@@ -81,9 +81,11 @@ def login():
     if not identifier or not password:
         abort(HTTPStatus.BAD_REQUEST, description="Missing credentials")
 
-    user = User.query.filter(
-        (User.username == identifier) | (User.email == identifier)
-    ).first()
+    if "@" in identifier:
+        normalized_email = identifier.lower()
+        user = User.query.filter(func.lower(User.email) == normalized_email).first()
+    else:
+        user = User.query.filter(User.username == identifier).first()
     if user is None or not check_password_hash(user.password_hash, password):
         abort(HTTPStatus.UNAUTHORIZED, description="Invalid credentials")
 
