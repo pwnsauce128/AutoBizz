@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +37,7 @@ export default function AuctionDetailScreen({ route }) {
   const [bidAmount, setBidAmount] = useState('');
   const [isSubmitting, setSubmitting] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isImageModalVisible, setImageModalVisible] = useState(false);
 
   const loadAuction = async () => {
     setLoading(true);
@@ -105,7 +107,21 @@ export default function AuctionDetailScreen({ route }) {
       <Text style={styles.title}>{auction.title}</Text>
       <Text style={styles.subtitle}>{auction.description}</Text>
       {heroImage ? (
-        <Image source={{ uri: heroImage }} style={styles.heroImage} resizeMode="cover" />
+        <>
+          <Pressable onPress={() => setImageModalVisible(true)} accessibilityRole="imagebutton">
+            <Image source={{ uri: heroImage }} style={styles.heroImage} resizeMode="cover" />
+          </Pressable>
+          <Modal
+            visible={isImageModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setImageModalVisible(false)}
+          >
+            <Pressable style={styles.modalBackdrop} onPress={() => setImageModalVisible(false)}>
+              <Image source={{ uri: heroImage }} style={styles.modalImage} resizeMode="contain" />
+            </Pressable>
+          </Modal>
+        </>
       ) : null}
       {imageUrls.length > 1 ? (
         <View style={styles.thumbnailGrid}>
@@ -308,5 +324,16 @@ const styles = StyleSheet.create({
   info: {
     marginTop: 24,
     color: '#6f6f6f',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalImage: {
+    width: '100%',
+    height: '80%',
   },
 });
