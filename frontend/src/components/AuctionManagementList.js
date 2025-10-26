@@ -330,14 +330,14 @@ export default function AuctionManagementList({
     ]);
   };
 
-  const editSection = editingId ? (
-    <View style={styles.editCard}>
-      <Text style={styles.editTitle}>Edit auction</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Title"
-        value={formValues.title}
-        onChangeText={(value) => setFormValues((current) => ({ ...current, title: value }))}
+  const renderItem = useCallback(
+    ({ item }) => (
+      <AuctionRow
+        auction={item}
+        onEditPress={handleEditPress}
+        onDeletePress={handleDelete}
+        isDeleting={deletingId === item.id}
+        mode={mode}
       />
     ),
     [handleEditPress, handleDelete, deletingId, mode],
