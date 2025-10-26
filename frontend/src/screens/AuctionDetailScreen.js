@@ -41,8 +41,6 @@ export default function AuctionDetailScreen({ route }) {
   const [isSubmitting, setSubmitting] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
-  const [fullScreenIndex, setFullScreenIndex] = useState(0);
-  const scrollViewRef = useRef(null);
 
   const loadAuction = async () => {
     setLoading(true);
@@ -136,7 +134,7 @@ export default function AuctionDetailScreen({ route }) {
       <Text style={styles.subtitle}>{auction.description}</Text>
       {heroImage ? (
         <>
-          <Pressable onPress={() => openImageModal(activeImageIndex)} accessibilityRole="imagebutton">
+          <Pressable onPress={() => setImageModalVisible(true)} accessibilityRole="imagebutton">
             <Image source={{ uri: heroImage }} style={styles.heroImage} resizeMode="cover" />
           </Pressable>
           <Modal
@@ -145,28 +143,9 @@ export default function AuctionDetailScreen({ route }) {
             animationType="fade"
             onRequestClose={() => setImageModalVisible(false)}
           >
-            <View style={styles.modalBackdrop}>
-              <ScrollView
-                ref={scrollViewRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={handleModalScroll}
-              >
-                {fullScreenImages.map((url, index) => (
-                  <View key={`${url}-${index}`} style={[styles.modalImageContainer, { width: WINDOW_WIDTH }]}>
-                    <Image source={{ uri: url }} style={styles.modalImage} resizeMode="contain" />
-                  </View>
-                ))}
-              </ScrollView>
-              <Pressable
-                style={({ pressed }) => [styles.modalCloseButton, pressed && styles.modalCloseButtonPressed]}
-                onPress={() => setImageModalVisible(false)}
-                accessibilityRole="button"
-              >
-                <Text style={styles.modalCloseLabel}>Close</Text>
-              </Pressable>
-            </View>
+            <Pressable style={styles.modalBackdrop} onPress={() => setImageModalVisible(false)}>
+              <Image source={{ uri: heroImage }} style={styles.modalImage} resizeMode="contain" />
+            </Pressable>
           </Modal>
         </>
       ) : null}
@@ -381,30 +360,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
-  modalImageContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   modalImage: {
     width: '100%',
     height: '80%',
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: 24,
-    right: 24,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  modalCloseButtonPressed: {
-    opacity: 0.7,
-  },
-  modalCloseLabel: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
   },
 });
