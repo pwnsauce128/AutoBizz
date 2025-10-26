@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Dimensions,
   Image,
   Modal,
   Pressable,
@@ -13,6 +14,8 @@ import {
 import { fetchAuction, placeBid } from '../api/client';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
+
+const WINDOW_WIDTH = Dimensions.get('window').width;
 
 function BidSummary({ auction }) {
   const bestBid = auction.best_bid;
@@ -101,6 +104,29 @@ export default function AuctionDetailScreen({ route }) {
     [];
   const heroImage = imageUrls[activeImageIndex] || imageUrls[0];
   const carteGriseImage = auction.carte_grise_image_url;
+  const fullScreenImages = [...imageUrls, ...(carteGriseImage ? [carteGriseImage] : [])];
+
+  const openImageModal = (index) => {
+    if (index < 0 || index >= fullScreenImages.length) {
+      return;
+    }
+    setFullScreenIndex(index);
+    setImageModalVisible(true);
+  };
+
+  useEffect(() => {
+    if (isImageModalVisible && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ x: fullScreenIndex * WINDOW_WIDTH, animated: false });
+    }
+  }, [fullScreenIndex, isImageModalVisible]);
+
+  const handleModalScroll = (event) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / WINDOW_WIDTH);
+    setFullScreenIndex(index);
+    if (index < imageUrls.length && index !== activeImageIndex) {
+      setActiveImageIndex(index);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -145,11 +171,13 @@ export default function AuctionDetailScreen({ route }) {
           <Text style={styles.documentHelper}>
             Seller provided the vehicle registration document.
           </Text>
-          <Image
-            source={{ uri: carteGriseImage }}
-            style={styles.documentImage}
-            resizeMode="cover"
-          />
+          <Pressable onPress={() => openImageModal(imageUrls.length)} accessibilityRole="imagebutton">
+            <Image
+              source={{ uri: carteGriseImage }}
+              style={styles.documentImage}
+              resizeMode="cover"
+            />
+          </Pressable>
         </View>
       ) : null}
       <Text style={styles.meta}>Minimum price: {auction.min_price} {auction.currency}</Text>
