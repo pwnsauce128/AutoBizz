@@ -66,10 +66,6 @@ def place_bid(auction_id: uuid.UUID):
     if amount_decimal < min_price:
         abort(HTTPStatus.BAD_REQUEST, description="Bid below minimum price")
 
-    top_bid = Bid.query.filter_by(auction_id=auction_id).order_by(Bid.amount.desc()).first()
-    if top_bid and amount_decimal <= Decimal(str(top_bid.amount)):
-        abort(HTTPStatus.BAD_REQUEST, description="Bid must be higher than current best")
-
     bid = Bid(
         auction_id=auction_id,
         buyer_id=user.id,

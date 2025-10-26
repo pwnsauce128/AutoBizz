@@ -109,6 +109,68 @@ def test_seller_can_create_and_buyer_can_bid(client):
     assert any(n.type == NotificationType.RESULT for n in notifications)
 
 
+def test_second_buyer_can_bid_below_best(client):
+    ensure_admin_user(client)
+    admin_token = login_user(client, "admin", ADMIN_PASSWORD)
+
+    create_seller_response = client.post(
+        "/admin/users",
+        headers=auth_headers(admin_token),
+        json={
+            "email": "seller-multi-bid@example.com",
+            "username": "seller-multi-bid",
+            "role": UserRole.SELLER.value,
+            "password": SELLER_PASSWORD,
+        },
+    )
+    assert create_seller_response.status_code == 201
+
+    seller_token = login_user(client, "seller-multi-bid", SELLER_PASSWORD)
+
+    create_response = client.post(
+        "/auctions",
+        headers=auth_headers(seller_token),
+        json={
+            "title": "Peugeot 208",
+            "description": "GT Line",
+            "min_price": 20000,
+            "currency": "EUR",
+            "images": ["https://example.com/peugeot-front.jpg"],
+            "carte_grise_image": "https://example.com/peugeot-carte.jpg",
+        },
+    )
+    assert create_response.status_code == 201
+    auction_id = create_response.get_json()["id"]
+
+    register_buyer(client, "buyer-top", "buyer-top@example.com", BUYER_PASSWORD)
+    top_buyer_token = login_user(client, "buyer-top", BUYER_PASSWORD)
+
+    first_bid = client.post(
+        f"/auctions/{auction_id}/bids",
+        headers=auth_headers(top_buyer_token),
+        json={"amount": 25000},
+    )
+    assert first_bid.status_code == 201
+
+    register_buyer(client, "buyer-second", "buyer-second@example.com", BUYER_PASSWORD)
+    second_buyer_token = login_user(client, "buyer-second", BUYER_PASSWORD)
+
+    second_bid = client.post(
+        f"/auctions/{auction_id}/bids",
+        headers=auth_headers(second_buyer_token),
+        json={"amount": 22000},
+    )
+    assert second_bid.status_code == 201
+    second_payload = second_bid.get_json()["bid"]
+    assert second_payload["amount"] == 22000.0
+
+    list_response = client.get("/auctions")
+    assert list_response.status_code == 200
+    listings = list_response.get_json()
+    assert listings[0]["best_bid"]["amount"] == 25000.0
+    assert listings[0]["best_bid"]["buyer_username"] == "buyer-top"
+
+
 def test_seller_can_edit_and_delete_after_bid(client):
     ensure_admin_user(client)
     admin_token = login_user(client, "admin", ADMIN_PASSWORD)
