@@ -1,6 +1,7 @@
 """Auction CRUD endpoints."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http import HTTPStatus
 import uuid
@@ -36,6 +37,7 @@ def list_auctions():
     status_param = request.args.get("status", AuctionStatus.ACTIVE.value)
     sort = request.args.get("sort", "fresh")
     scope = request.args.get("scope")
+    created_after_raw = request.args.get("created_after")
 
     bid_join = joinedload(Auction.bids).joinedload(Bid.buyer)
 
@@ -56,6 +58,16 @@ def list_auctions():
         if user.role != UserRole.BUYER:
             abort(HTTPStatus.FORBIDDEN, description="Only buyers can view this scope")
         query = query.filter(Auction.bids.any(Bid.buyer_id == user.id))
+
+    if created_after_raw:
+        parsed_raw = created_after_raw.replace("Z", "+00:00")
+        try:
+            created_after = datetime.fromisoformat(parsed_raw)
+        except ValueError:  # pragma: no cover - defensive branch
+            abort(HTTPStatus.BAD_REQUEST, description="Invalid created_after timestamp")
+        if created_after.tzinfo is None:
+            created_after = created_after.replace(tzinfo=timezone.utc)
+        query = query.filter(Auction.created_at > created_after)
 
     if sort == "fresh":
         query = query.order_by(Auction.start_at.desc())
@@ -362,6 +374,7 @@ def serialize_auction_preview(auction: Auction) -> dict:
         "min_price": float(auction.min_price),
         "currency": auction.currency,
         "status": auction.status.value,
+        "created_at": auction.created_at.isoformat() if auction.created_at else None,
         "start_at": auction.start_at.isoformat() if auction.start_at else None,
         "end_at": auction.end_at.isoformat() if auction.end_at else None,
         "best_bid": serialize_bid(auction.bids[0]) if auction.bids else None,
