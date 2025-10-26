@@ -47,7 +47,13 @@ export async function login({ usernameOrEmail, password }) {
   });
 }
 
-export async function listAuctions({ status = 'active', sort = 'fresh', scope, token } = {}) {
+export async function listAuctions({
+  status = 'active',
+  sort = 'fresh',
+  scope,
+  createdAfter,
+  token,
+} = {}) {
   const params = new URLSearchParams();
   if (status) {
     params.append('status', status);
@@ -57,6 +63,9 @@ export async function listAuctions({ status = 'active', sort = 'fresh', scope, t
   }
   if (scope) {
     params.append('scope', scope);
+  }
+  if (createdAfter) {
+    params.append('created_after', createdAfter);
   }
   const query = params.toString();
   const suffix = query ? `?${query}` : '';

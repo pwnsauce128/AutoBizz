@@ -69,6 +69,83 @@ function isAuctionExpired(auction) {
   return false;
 }
 
+function sanitizeAuctionsForTab(list, tabKey) {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  if (tabKey === 'all') {
+    return list.filter((auction) => !isAuctionExpired(auction));
+  }
+  return [...list];
+}
+
+function mergeAuctions(existing, incoming) {
+  if (!existing?.length) {
+    return incoming ? [...incoming] : [];
+  }
+  if (!incoming?.length) {
+    return [...existing];
+  }
+
+  const merged = [];
+  const seenIds = new Set();
+
+  incoming.forEach((item) => {
+    if (!item || !item.id) {
+      return;
+    }
+    merged.push(item);
+    seenIds.add(item.id);
+  });
+
+  existing.forEach((item) => {
+    if (!item || !item.id) {
+      return;
+    }
+    if (!seenIds.has(item.id)) {
+      merged.push(item);
+    }
+  });
+
+  return merged;
+}
+
+function sortAuctionsByCreatedAt(list) {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  const copy = [...list];
+  copy.sort((a, b) => {
+    const fallback = Number.MIN_SAFE_INTEGER;
+    const aTime = new Date(a?.created_at || a?.start_at || 0).getTime();
+    const bTime = new Date(b?.created_at || b?.start_at || 0).getTime();
+    const normalizedATime = Number.isNaN(aTime) ? fallback : aTime;
+    const normalizedBTime = Number.isNaN(bTime) ? fallback : bTime;
+    return normalizedBTime - normalizedATime;
+  });
+  return copy;
+}
+
+function getLatestCreatedAt(list) {
+  if (!Array.isArray(list)) {
+    return null;
+  }
+  let latest = null;
+  list.forEach((item) => {
+    if (!item?.created_at) {
+      return;
+    }
+    const parsed = new Date(item.created_at).getTime();
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+    if (latest === null || parsed > latest) {
+      latest = parsed;
+    }
+  });
+  return latest ? new Date(latest).toISOString() : null;
+}
+
 const TABS = [
   { key: 'all', label: 'All auctions', status: 'active' },
   { key: 'participating', label: 'My bids', status: 'all', scope: 'participating' },
@@ -82,6 +159,7 @@ export default function AuctionListScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [activeTabKey, setActiveTabKey] = useState('all');
   const isFirstLoadRef = useRef(true);
+  const cacheRef = useRef(new Map());
 
   const handleLogout = useCallback(() => {
     logout();
@@ -93,11 +171,27 @@ export default function AuctionListScreen({ navigation }) {
   );
 
   const loadAuctions = useCallback(
-    async (tab, { showSpinner = false } = {}) => {
+    async (tab, { showSpinner = false, forceReload = false } = {}) => {
       if (!tab) {
         return;
       }
-      if (showSpinner) {
+      const cacheKey = tab.key;
+      const cachedEntry = cacheRef.current.get(cacheKey);
+      const cachedItems = cachedEntry
+        ? sortAuctionsByCreatedAt(sanitizeAuctionsForTab(cachedEntry.items, tab.key))
+        : null;
+
+      if (cachedEntry) {
+        cacheRef.current.set(cacheKey, {
+          items: cachedItems ?? [],
+          lastFetchedAt: cachedEntry.lastFetchedAt,
+        });
+      }
+
+      if (cachedItems) {
+        setAuctions(cachedItems);
+        setLoading(false);
+      } else if (showSpinner) {
         setLoading(true);
       }
       try {
@@ -110,14 +204,29 @@ export default function AuctionListScreen({ navigation }) {
           params.scope = tab.scope;
           params.token = accessToken;
         }
+        if (!forceReload && cachedEntry?.lastFetchedAt) {
+          params.createdAfter = cachedEntry.lastFetchedAt;
+        }
         const data = await listAuctions(params);
-        const processed = tab.key === 'all' ? data.filter((auction) => !isAuctionExpired(auction)) : data;
-        setAuctions(processed);
+        const sanitizedIncoming = sanitizeAuctionsForTab(data, tab.key);
+        const baseList =
+          forceReload || !cachedItems ? sanitizedIncoming : mergeAuctions(cachedItems, sanitizedIncoming);
+        const sorted = sortAuctionsByCreatedAt(baseList);
+        const latestCreatedAt = getLatestCreatedAt(sorted);
+        const nextLastFetchedAt =
+          latestCreatedAt ?? cachedEntry?.lastFetchedAt ?? (sanitizedIncoming.length > 0 ? new Date().toISOString() : null);
+        cacheRef.current.set(cacheKey, {
+          items: sorted,
+          lastFetchedAt: nextLastFetchedAt,
+        });
+        setAuctions(sorted);
       } catch (err) {
         setError(err.message);
-        setAuctions([]);
+        if (!cachedItems || forceReload) {
+          setAuctions([]);
+        }
       } finally {
-        if (showSpinner) {
+        if (showSpinner || !cachedItems || forceReload) {
           setLoading(false);
         }
         setRefreshing(false);
@@ -127,8 +236,9 @@ export default function AuctionListScreen({ navigation }) {
   );
 
   useEffect(() => {
-    const shouldShowSpinner = isFirstLoadRef.current;
-    loadAuctions(currentTab, { showSpinner: shouldShowSpinner });
+    const cachedEntry = cacheRef.current.get(currentTab.key);
+    const shouldShowSpinner = isFirstLoadRef.current || !cachedEntry;
+    loadAuctions(currentTab, { showSpinner: shouldShowSpinner, forceReload: !cachedEntry });
     if (isFirstLoadRef.current) {
       isFirstLoadRef.current = false;
     }
@@ -142,7 +252,7 @@ export default function AuctionListScreen({ navigation }) {
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadAuctions(currentTab);
+    loadAuctions(currentTab, { forceReload: true });
   };
 
   if (loading) {
