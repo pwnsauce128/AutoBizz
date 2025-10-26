@@ -111,29 +111,6 @@ export default function AuctionDetailScreen({ route }) {
   }, [auction.image_urls, auction.images]);
 
   const carteGriseImage = auction.carte_grise_image_url;
-  const fullScreenImages = [...imageUrls, ...(carteGriseImage ? [carteGriseImage] : [])];
-
-  const openImageModal = (index) => {
-    if (index < 0 || index >= fullScreenImages.length) {
-      return;
-    }
-    setFullScreenIndex(index);
-    setImageModalVisible(true);
-  };
-
-  useEffect(() => {
-    if (isImageModalVisible && scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ x: fullScreenIndex * WINDOW_WIDTH, animated: false });
-    }
-  }, [fullScreenIndex, isImageModalVisible]);
-
-  const handleModalScroll = (event) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / WINDOW_WIDTH);
-    setFullScreenIndex(index);
-    if (index < imageUrls.length && index !== activeImageIndex) {
-      setActiveImageIndex(index);
-    }
-  };
 
   const fullScreenImages = useMemo(() => {
     const gallery = [...imageUrls];
