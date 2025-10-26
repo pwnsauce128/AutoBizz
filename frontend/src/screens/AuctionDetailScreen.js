@@ -85,22 +85,10 @@ export default function AuctionDetailScreen({ route }) {
     }
   };
 
-  if (loading) {
-    return <LoadingOverlay />;
-  }
-
-  if (!auction) {
-    return (
-      <View style={styles.centered}>
-        <Text>Unable to load auction.</Text>
-      </View>
-    );
-  }
-
-  const isBuyer = role === 'buyer';
-  const canBid = Boolean(accessToken && isBuyer);
-
   const imageUrls = useMemo(() => {
+    if (!auction) {
+      return [];
+    }
     if (Array.isArray(auction.image_urls) && auction.image_urls.length > 0) {
       return auction.image_urls;
     }
@@ -108,9 +96,9 @@ export default function AuctionDetailScreen({ route }) {
       return auction.images;
     }
     return [];
-  }, [auction.image_urls, auction.images]);
+  }, [auction]);
 
-  const carteGriseImage = auction.carte_grise_image_url;
+  const carteGriseImage = auction?.carte_grise_image_url ?? null;
 
   const fullScreenImages = useMemo(() => {
     const gallery = [...imageUrls];
@@ -127,6 +115,21 @@ export default function AuctionDetailScreen({ route }) {
   }, [imageUrls, activeImageIndex]);
 
   const heroImage = imageUrls[activeImageIndex] || imageUrls[0];
+
+  const isBuyer = role === 'buyer';
+  const canBid = Boolean(accessToken && isBuyer);
+
+  if (loading) {
+    return <LoadingOverlay />;
+  }
+
+  if (!auction) {
+    return (
+      <View style={styles.centered}>
+        <Text>Unable to load auction.</Text>
+      </View>
+    );
+  }
 
   const openImageModal = useCallback(
     (index) => {
