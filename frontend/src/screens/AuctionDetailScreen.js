@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Dimensions,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +14,8 @@ import {
 import { fetchAuction, placeBid } from '../api/client';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
+
+const WINDOW_WIDTH = Dimensions.get('window').width;
 
 function BidSummary({ auction }) {
   const bestBid = auction.best_bid;
@@ -36,6 +40,9 @@ export default function AuctionDetailScreen({ route }) {
   const [bidAmount, setBidAmount] = useState('');
   const [isSubmitting, setSubmitting] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isImageModalVisible, setImageModalVisible] = useState(false);
+  const [fullScreenIndex, setFullScreenIndex] = useState(0);
+  const scrollViewRef = useRef(null);
 
   const loadAuction = async () => {
     setLoading(true);
@@ -93,19 +100,102 @@ export default function AuctionDetailScreen({ route }) {
   const isBuyer = role === 'buyer';
   const canBid = Boolean(accessToken && isBuyer);
 
-  const imageUrls =
-    (Array.isArray(auction.image_urls) && auction.image_urls) ||
-    (Array.isArray(auction.images) && auction.images) ||
-    [];
-  const heroImage = imageUrls[activeImageIndex] || imageUrls[0];
+  const imageUrls = useMemo(() => {
+    if (Array.isArray(auction.image_urls) && auction.image_urls.length > 0) {
+      return auction.image_urls;
+    }
+    if (Array.isArray(auction.images) && auction.images.length > 0) {
+      return auction.images;
+    }
+    return [];
+  }, [auction.image_urls, auction.images]);
+
   const carteGriseImage = auction.carte_grise_image_url;
+
+  const fullScreenImages = useMemo(() => {
+    const gallery = [...imageUrls];
+    if (carteGriseImage && !gallery.includes(carteGriseImage)) {
+      gallery.push(carteGriseImage);
+    }
+    return gallery;
+  }, [imageUrls, carteGriseImage]);
+
+  useEffect(() => {
+    if (activeImageIndex >= imageUrls.length && imageUrls.length > 0) {
+      setActiveImageIndex(0);
+    }
+  }, [imageUrls, activeImageIndex]);
+
+  const heroImage = imageUrls[activeImageIndex] || imageUrls[0];
+
+  const openImageModal = useCallback(
+    (index) => {
+      if (index < 0 || index >= fullScreenImages.length) {
+        return;
+      }
+      setFullScreenIndex(index);
+      setImageModalVisible(true);
+    },
+    [fullScreenImages.length]
+  );
+
+  const closeImageModal = useCallback(() => {
+    setImageModalVisible(false);
+  }, []);
+
+  useEffect(() => {
+    if (isImageModalVisible && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ x: fullScreenIndex * WINDOW_WIDTH, animated: false });
+    }
+  }, [fullScreenIndex, isImageModalVisible]);
+
+  const handleModalScroll = (event) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / WINDOW_WIDTH);
+    setFullScreenIndex(index);
+    if (index < imageUrls.length && index !== activeImageIndex) {
+      setActiveImageIndex(index);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{auction.title}</Text>
       <Text style={styles.subtitle}>{auction.description}</Text>
       {heroImage ? (
-        <Image source={{ uri: heroImage }} style={styles.heroImage} resizeMode="cover" />
+        <>
+          <Pressable onPress={() => openImageModal(activeImageIndex)} accessibilityRole="imagebutton">
+            <Image source={{ uri: heroImage }} style={styles.heroImage} resizeMode="cover" />
+          </Pressable>
+          <Modal
+            visible={isImageModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={closeImageModal}
+          >
+            <View style={styles.modalBackdrop}>
+              <ScrollView
+                ref={scrollViewRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={handleModalScroll}
+              >
+                {fullScreenImages.map((url, index) => (
+                  <View key={`${url}-${index}`} style={[styles.modalImageContainer, { width: WINDOW_WIDTH }]}>
+                    <Image source={{ uri: url }} style={styles.modalImage} resizeMode="contain" />
+                  </View>
+                ))}
+              </ScrollView>
+              <Pressable
+                style={({ pressed }) => [styles.modalCloseButton, pressed && styles.modalCloseButtonPressed]}
+                onPress={closeImageModal}
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalCloseLabel}>Close</Text>
+              </Pressable>
+            </View>
+          </Modal>
+        </>
       ) : null}
       {imageUrls.length > 1 ? (
         <View style={styles.thumbnailGrid}>
@@ -129,11 +219,19 @@ export default function AuctionDetailScreen({ route }) {
           <Text style={styles.documentHelper}>
             Seller provided the vehicle registration document.
           </Text>
-          <Image
-            source={{ uri: carteGriseImage }}
-            style={styles.documentImage}
-            resizeMode="cover"
-          />
+          <Pressable
+            onPress={() => {
+              const carteGriseIndex = fullScreenImages.findIndex((url) => url === carteGriseImage);
+              openImageModal(carteGriseIndex === -1 ? imageUrls.length : carteGriseIndex);
+            }}
+            accessibilityRole="imagebutton"
+          >
+            <Image
+              source={{ uri: carteGriseImage }}
+              style={styles.documentImage}
+              resizeMode="cover"
+            />
+          </Pressable>
         </View>
       ) : null}
       <Text style={styles.meta}>Minimum price: {auction.min_price} {auction.currency}</Text>
@@ -308,5 +406,38 @@ const styles = StyleSheet.create({
   info: {
     marginTop: 24,
     color: '#6f6f6f',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalImage: {
+    width: '100%',
+    height: '80%',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 24,
+    right: 24,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  modalCloseButtonPressed: {
+    opacity: 0.7,
+  },
+  modalCloseLabel: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
