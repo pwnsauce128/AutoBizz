@@ -290,9 +290,6 @@ def update_auction(auction_id: uuid.UUID):
     if auction is None:
         abort(HTTPStatus.NOT_FOUND, description="Auction not found")
 
-    if auction.is_locked:
-        abort(HTTPStatus.BAD_REQUEST, description="Auction locked after first bid")
-
     if user.role not in {UserRole.ADMIN, UserRole.SELLER}:
         abort(HTTPStatus.FORBIDDEN, description="Insufficient permissions")
 
@@ -352,14 +349,14 @@ def delete_auction(auction_id: uuid.UUID):
     if auction is None:
         abort(HTTPStatus.NOT_FOUND, description="Auction not found")
 
-    if auction.is_locked:
-        abort(HTTPStatus.BAD_REQUEST, description="Auction locked after first bid")
-
     if user.role not in {UserRole.ADMIN, UserRole.SELLER}:
         abort(HTTPStatus.FORBIDDEN, description="Insufficient permissions")
 
     if user.role == UserRole.SELLER and auction.seller_id != user.id:
         abort(HTTPStatus.FORBIDDEN, description="Cannot delete another seller's auction")
+
+    for bid in list(auction.bids):
+        db.session.delete(bid)
 
     db.session.delete(auction)
     db.session.commit()

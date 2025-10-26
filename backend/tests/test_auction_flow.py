@@ -4,7 +4,9 @@ from __future__ import annotations
 from werkzeug.security import generate_password_hash
 
 from app.extensions import db
-from app.models import Notification, NotificationType, User, UserRole
+import uuid
+
+from app.models import Auction, Bid, Notification, NotificationType, User, UserRole
 
 
 ADMIN_PASSWORD = "AdminPassw0rd!"
@@ -105,6 +107,71 @@ def test_seller_can_create_and_buyer_can_bid(client):
     notifications = Notification.query.all()
     assert any(n.type == NotificationType.NEW_AUCTION for n in notifications)
     assert any(n.type == NotificationType.RESULT for n in notifications)
+
+
+def test_seller_can_edit_and_delete_after_bid(client):
+    ensure_admin_user(client)
+    admin_token = login_user(client, "admin", ADMIN_PASSWORD)
+
+    create_seller_response = client.post(
+        "/admin/users",
+        headers=auth_headers(admin_token),
+        json={
+            "email": "seller-edit-delete@example.com",
+            "username": "seller-edit-delete",
+            "role": UserRole.SELLER.value,
+            "password": SELLER_PASSWORD,
+        },
+    )
+    assert create_seller_response.status_code == 201
+
+    seller_token = login_user(client, "seller-edit-delete", SELLER_PASSWORD)
+
+    create_response = client.post(
+        "/auctions",
+        headers=auth_headers(seller_token),
+        json={
+            "title": "Citroen DS",
+            "description": "Showroom condition",
+            "min_price": 42000,
+            "currency": "EUR",
+            "images": ["https://example.com/ds-front.jpg"],
+            "carte_grise_image": "https://example.com/ds-carte.jpg",
+        },
+    )
+    assert create_response.status_code == 201
+    auction_id = create_response.get_json()["id"]
+
+    register_buyer(client, "buyer-edit-delete", "buyer-edit-delete@example.com", BUYER_PASSWORD)
+    buyer_token = login_user(client, "buyer-edit-delete", BUYER_PASSWORD)
+
+    bid_response = client.post(
+        f"/auctions/{auction_id}/bids",
+        headers=auth_headers(buyer_token),
+        json={"amount": 43000},
+    )
+    assert bid_response.status_code == 201
+
+    update_response = client.patch(
+        f"/auctions/{auction_id}",
+        headers=auth_headers(seller_token),
+        json={"title": "Citroen DS Updated"},
+    )
+    assert update_response.status_code == 200
+    updated_payload = update_response.get_json()
+    assert updated_payload["title"] == "Citroen DS Updated"
+
+    delete_response = client.delete(
+        f"/auctions/{auction_id}",
+        headers=auth_headers(seller_token),
+    )
+    assert delete_response.status_code == 204
+
+    app = client.application
+    auction_uuid = uuid.UUID(auction_id)
+    with app.app_context():
+        assert Auction.query.filter_by(id=auction_uuid).first() is None
+        assert Bid.query.filter_by(auction_id=auction_uuid).count() == 0
 
 
 def test_buyer_cannot_exceed_bid_limit(client):
