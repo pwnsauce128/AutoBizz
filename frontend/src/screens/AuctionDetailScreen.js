@@ -37,7 +37,7 @@ export default function AuctionDetailScreen({ route }) {
   const [bidAmount, setBidAmount] = useState('');
   const [isSubmitting, setSubmitting] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [isImageModalVisible, setImageModalVisible] = useState(false);
+  const [modalImageUri, setModalImageUri] = useState(null);
 
   const loadAuction = async () => {
     setLoading(true);
@@ -107,21 +107,13 @@ export default function AuctionDetailScreen({ route }) {
       <Text style={styles.title}>{auction.title}</Text>
       <Text style={styles.subtitle}>{auction.description}</Text>
       {heroImage ? (
-        <>
-          <Pressable onPress={() => setImageModalVisible(true)} accessibilityRole="imagebutton">
-            <Image source={{ uri: heroImage }} style={styles.heroImage} resizeMode="cover" />
-          </Pressable>
-          <Modal
-            visible={isImageModalVisible}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setImageModalVisible(false)}
-          >
-            <Pressable style={styles.modalBackdrop} onPress={() => setImageModalVisible(false)}>
-              <Image source={{ uri: heroImage }} style={styles.modalImage} resizeMode="contain" />
-            </Pressable>
-          </Modal>
-        </>
+        <Pressable
+          onPress={() => setModalImageUri(heroImage)}
+          accessibilityRole="imagebutton"
+          accessibilityLabel="View main photo"
+        >
+          <Image source={{ uri: heroImage }} style={styles.heroImage} resizeMode="cover" />
+        </Pressable>
       ) : null}
       {imageUrls.length > 1 ? (
         <View style={styles.thumbnailGrid}>
@@ -145,11 +137,14 @@ export default function AuctionDetailScreen({ route }) {
           <Text style={styles.documentHelper}>
             Seller provided the vehicle registration document.
           </Text>
-          <Image
-            source={{ uri: carteGriseImage }}
-            style={styles.documentImage}
-            resizeMode="cover"
-          />
+          <Pressable
+            onPress={() => setModalImageUri(carteGriseImage)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel="View carte grise"
+            style={styles.documentImageWrapper}
+          >
+            <Image source={{ uri: carteGriseImage }} style={styles.documentImage} resizeMode="cover" />
+          </Pressable>
         </View>
       ) : null}
       <Text style={styles.meta}>Minimum price: {auction.min_price} {auction.currency}</Text>
@@ -186,6 +181,18 @@ export default function AuctionDetailScreen({ route }) {
       ) : (
         <Text style={styles.info}>Log in as a buyer to place bids.</Text>
       )}
+      <Modal
+        visible={Boolean(modalImageUri)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalImageUri(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setModalImageUri(null)}>
+          {modalImageUri ? (
+            <Image source={{ uri: modalImageUri }} style={styles.modalImage} resizeMode="contain" />
+          ) : null}
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -314,12 +321,16 @@ const styles = StyleSheet.create({
   documentHelper: {
     color: '#4a4a4a',
   },
+  documentImageWrapper: {
+    marginTop: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   documentImage: {
     width: '100%',
     height: 200,
     borderRadius: 12,
     backgroundColor: '#e5e5e5',
-    marginTop: 12,
   },
   info: {
     marginTop: 24,
@@ -334,6 +345,6 @@ const styles = StyleSheet.create({
   },
   modalImage: {
     width: '100%',
-    height: '80%',
+    height: '100%',
   },
 });

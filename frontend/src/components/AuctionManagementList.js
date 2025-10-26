@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import {
   deleteAuction,
@@ -25,7 +26,14 @@ const EMPTY_LIST_MESSAGE = {
 
 const MAX_IMAGES = 8;
 
-function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting, mode = 'seller' }) {
+function AuctionRow({
+  auction,
+  onEditPress,
+  onDeletePress,
+  onViewPress,
+  isDeleting,
+  mode = 'seller',
+}) {
   const previewImage =
     (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
     (Array.isArray(auction.images) && auction.images[0]) ||
@@ -38,8 +46,21 @@ function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting, mode = 's
   const isExpired = auction.end_at ? new Date(auction.end_at) < new Date() : false;
   const shouldHighlight = isSellerView && isExpired && hasWinningBid;
 
+  const handleCardPress = () => {
+    if (onViewPress) {
+      onViewPress(auction.id);
+    }
+  };
+
   return (
-    <View style={[styles.card, shouldHighlight && styles.cardHighlighted]}>
+    <Pressable
+      onPress={handleCardPress}
+      style={({ pressed }) => [
+        styles.card,
+        shouldHighlight && styles.cardHighlighted,
+        pressed && styles.cardPressed,
+      ]}
+    >
       {previewImage ? (
         <Image source={{ uri: previewImage }} style={styles.cardImage} resizeMode="cover" />
       ) : null}
@@ -69,20 +90,26 @@ function AuctionRow({ auction, onEditPress, onDeletePress, isDeleting, mode = 's
       ) : null}
       <View style={styles.cardActions}>
         <Pressable
-          onPress={() => onEditPress(auction.id)}
+          onPress={(event) => {
+            event.stopPropagation?.();
+            onEditPress(auction.id);
+          }}
           style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
         >
           <Text style={styles.actionButtonLabel}>Edit</Text>
         </Pressable>
         <Pressable
-          onPress={() => onDeletePress(auction.id)}
+          onPress={(event) => {
+            event.stopPropagation?.();
+            onDeletePress(auction.id);
+          }}
           style={({ pressed }) => [styles.deleteButton, pressed && styles.actionButtonPressed]}
           disabled={isDeleting}
         >
           <Text style={styles.deleteButtonLabel}>{isDeleting ? 'Deleting…' : 'Delete'}</Text>
         </Pressable>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -92,6 +119,7 @@ export default function AuctionManagementList({
   refreshKey = 0,
   style,
 }) {
+  const navigation = useNavigation();
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -330,17 +358,28 @@ export default function AuctionManagementList({
     ]);
   };
 
+  const handleViewPress = useCallback(
+    (auctionId) => {
+      if (!auctionId) {
+        return;
+      }
+      navigation.navigate('AuctionDetail', { id: auctionId });
+    },
+    [navigation],
+  );
+
   const renderItem = useCallback(
     ({ item }) => (
       <AuctionRow
         auction={item}
         onEditPress={handleEditPress}
         onDeletePress={handleDelete}
+        onViewPress={handleViewPress}
         isDeleting={deletingId === item.id}
         mode={mode}
       />
     ),
-    [handleEditPress, handleDelete, deletingId, mode],
+    [handleEditPress, handleDelete, handleViewPress, deletingId, mode],
   );
 
   const keyExtractor = useCallback((item) => item.id, []);
@@ -500,6 +539,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+  cardPressed: {
+    transform: [{ scale: 0.99 }],
   },
   cardHighlighted: {
     backgroundColor: '#e8f0ff',
