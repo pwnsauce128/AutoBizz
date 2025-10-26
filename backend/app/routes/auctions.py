@@ -7,7 +7,7 @@ from http import HTTPStatus
 import uuid
 
 from flask import Blueprint, abort, jsonify, request
-from flask_jwt_extended import jwt_required, verify_jwt_in_request
+from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db
@@ -32,6 +32,31 @@ TWO_PLACES = Decimal("0.01")
 auctions_bp = Blueprint("auctions", __name__)
 
 
+def _resolve_optional_viewer() -> User | None:
+    """Return the authenticated user if a valid JWT is present."""
+
+    try:
+        verify_jwt_in_request(optional=True)
+    except Exception:  # pragma: no cover - defensive fallback
+        return None
+
+    identity = get_jwt_identity()
+    if identity is None:
+        return None
+
+    try:
+        viewer_uuid = uuid.UUID(str(identity))
+    except (TypeError, ValueError):  # pragma: no cover - defensive fallback
+        return None
+
+    viewer = User.query.filter_by(id=viewer_uuid).first()
+    if viewer is None:
+        return None
+    if not viewer.is_active():
+        return None
+    return viewer
+
+
 @auctions_bp.get("")
 def list_auctions():
     status_param = request.args.get("status", AuctionStatus.ACTIVE.value)
@@ -42,6 +67,7 @@ def list_auctions():
     bid_join = joinedload(Auction.bids).joinedload(Bid.buyer)
 
     query = Auction.query.options(bid_join)
+    viewer: User | None = None
 
     if status_param != "all":
         try:
@@ -58,6 +84,10 @@ def list_auctions():
         if user.role != UserRole.BUYER:
             abort(HTTPStatus.FORBIDDEN, description="Only buyers can view this scope")
         query = query.filter(Auction.bids.any(Bid.buyer_id == user.id))
+        viewer = user
+
+    if viewer is None:
+        viewer = _resolve_optional_viewer()
 
     if created_after_raw:
         parsed_raw = created_after_raw.replace("Z", "+00:00")
@@ -75,7 +105,7 @@ def list_auctions():
         query = query.order_by(Auction.created_at.desc())
 
     auctions = query.limit(AUCTIONS_PER_PAGE).all()
-    return jsonify([serialize_auction_preview(auction) for auction in auctions])
+    return jsonify([serialize_auction_preview(auction, viewer=viewer) for auction in auctions])
 
 
 def _normalize_images(images: object) -> list[str]:
@@ -275,7 +305,8 @@ def get_auction(auction_id: uuid.UUID):
     )
     if auction is None:
         abort(HTTPStatus.NOT_FOUND, description="Auction not found")
-    return jsonify(serialize_auction_detail(auction))
+    viewer = _resolve_optional_viewer()
+    return jsonify(serialize_auction_detail(auction, viewer=viewer))
 
 
 @auctions_bp.patch("/<uuid:auction_id>")
@@ -363,7 +394,14 @@ def delete_auction(auction_id: uuid.UUID):
     return ("", HTTPStatus.NO_CONTENT)
 
 
-def serialize_auction_preview(auction: Auction) -> dict:
+def serialize_auction_preview(auction: Auction, *, viewer: User | None = None) -> dict:
+    viewer_bid = None
+    if viewer is not None:
+        for bid in auction.bids:
+            if bid.buyer_id == viewer.id:
+                viewer_bid = bid
+                break
+
     return {
         "id": str(auction.id),
         "title": auction.title,
@@ -375,13 +413,15 @@ def serialize_auction_preview(auction: Auction) -> dict:
         "start_at": auction.start_at.isoformat() if auction.start_at else None,
         "end_at": auction.end_at.isoformat() if auction.end_at else None,
         "best_bid": serialize_bid(auction.bids[0]) if auction.bids else None,
+        "viewer_bid": serialize_bid(viewer_bid) if viewer_bid else None,
+        "viewer_has_bid": viewer_bid is not None,
         "image_urls": auction.image_urls,
         "carte_grise_image_url": auction.carte_grise_image_url,
     }
 
 
-def serialize_auction_detail(auction: Auction) -> dict:
-    data = serialize_auction_preview(auction)
+def serialize_auction_detail(auction: Auction, *, viewer: User | None = None) -> dict:
+    data = serialize_auction_preview(auction, viewer=viewer)
     data.update(
         {
             "description": auction.description,
