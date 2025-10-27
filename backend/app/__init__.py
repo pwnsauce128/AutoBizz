@@ -14,6 +14,7 @@ from .routes.auth import auth_bp
 from .routes.auctions import auctions_bp
 from .routes.bids import bids_bp
 from .routes.notifications import notifications_bp
+from .push_delivery import init_app as init_push_delivery
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -46,6 +47,7 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(auctions_bp, url_prefix="/auctions")
     app.register_blueprint(bids_bp, url_prefix="/auctions")
     app.register_blueprint(notifications_bp, url_prefix="/")
+    init_push_delivery(app)
 
     @app.get("/time")
     def get_server_time() -> dict[str, str]:
