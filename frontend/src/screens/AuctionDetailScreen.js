@@ -214,10 +214,11 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     marginBottom: 12,
+    color: '#f5f5f5',
   },
   subtitle: {
     fontSize: 16,
-    color: '#4a4a4a',
+    color: '#e6e6e6',
     marginBottom: 16,
   },
   heroImage: {
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 14,
-    color: '#6f6f6f',
+    color: '#e0e0e0',
     marginBottom: 6,
   },
   sectionTitle: {
@@ -260,9 +261,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 24,
     marginBottom: 12,
+    color: '#f2f2f2',
   },
   empty: {
-    color: '#6f6f6f',
+    color: '#d9d9d9',
   },
   bidRow: {
     paddingVertical: 8,
@@ -272,9 +274,10 @@ const styles = StyleSheet.create({
   bidAmount: {
     fontWeight: '600',
     fontSize: 16,
+    color: '#f3f3f3',
   },
   bidMeta: {
-    color: '#6f6f6f',
+    color: '#dcdcdc',
     fontSize: 12,
   },
   bidBox: {
@@ -318,7 +321,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   documentHelper: {
-    color: '#4a4a4a',
+    color: '#e6e6e6',
   },
   documentImageWrapper: {
     marginTop: 12,
@@ -333,7 +336,7 @@ const styles = StyleSheet.create({
   },
   info: {
     marginTop: 24,
-    color: '#6f6f6f',
+    color: '#dedede',
   },
   modalBackdrop: {
     flex: 1,
