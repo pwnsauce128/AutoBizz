@@ -35,14 +35,6 @@ This directory contains a lightweight Expo/React Native client for interacting w
 
    When omitted, the app falls back to `http://127.0.0.1:5000`.
 
-   If you want to test push notifications locally, also add your Expo Application Services (EAS) project identifier:
-
-   ```bash
-   echo "EXPO_PUBLIC_EAS_PROJECT_ID=00000000-0000-0000-0000-000000000000" >> .env
-   ```
-
-   Replace the placeholder with the UUID found in the Expo dashboard for your project. The value is required because Expo now rejects push token requests that do not specify a project ID (SDK 49 and above).
-
 3. Start the backend if it is not already running:
 
    ```bash
@@ -62,7 +54,7 @@ This directory contains a lightweight Expo/React Native client for interacting w
 ```
 frontend/
 ├── App.js                 # Navigation + root provider wiring
-├── app.config.js          # Expo configuration (injects env-driven extras)
+├── app.json               # Expo configuration
 ├── package.json           # Dependencies and scripts
 ├── assets/                # Placeholder icons for Expo builds
 └── src/
