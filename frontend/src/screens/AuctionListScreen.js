@@ -13,22 +13,11 @@ import { listAuctions } from '../api/client';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
 
-function AuctionCard({ auction, onPress, highlight, tabKey }) {
+function AuctionCard({ auction, onPress, highlight }) {
   const previewImage =
     (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
     (Array.isArray(auction.images) && auction.images[0]) ||
     null;
-  const rawViewerBidAmount = auction?.viewer_bid?.amount;
-  const numericViewerBidAmount =
-    typeof rawViewerBidAmount === 'number'
-      ? rawViewerBidAmount
-      : typeof rawViewerBidAmount === 'string'
-      ? Number.parseFloat(rawViewerBidAmount)
-      : null;
-  const formattedViewerBid =
-    typeof numericViewerBidAmount === 'number' && !Number.isNaN(numericViewerBidAmount)
-      ? numericViewerBidAmount.toFixed(2).replace(/\.00$/, '')
-      : null;
   return (
     <Pressable
       style={({ pressed }) => [
@@ -49,20 +38,11 @@ function AuctionCard({ auction, onPress, highlight, tabKey }) {
         </Text>
       ) : null}
       <View style={styles.cardRow}>
-        <Text style={styles.cardLabel}>{priceLabel}</Text>
-        <Text style={[styles.cardValue, showViewerBid && styles.cardViewerValue]}>
-          {priceAmount} {auction.currency}
+        <Text style={styles.cardLabel}>Minimum:</Text>
+        <Text style={styles.cardValue}>
+          {auction.min_price} {auction.currency}
         </Text>
       </View>
-      {formattedViewerBid ? (
-        <View style={styles.cardRow}>
-          <Text style={styles.cardLabel}>My bet:</Text>
-          <Text style={styles.cardValue}>
-            {formattedViewerBid}
-            {auction.currency}
-          </Text>
-        </View>
-      ) : null}
       {auction.end_at ? (
         <Text style={styles.cardMeta}>Ends at {new Date(auction.end_at).toLocaleString()}</Text>
       ) : null}
@@ -94,16 +74,7 @@ function sanitizeAuctionsForTab(list, tabKey) {
     return [];
   }
   if (tabKey === 'all') {
-    return list.filter((auction) => {
-      if (!auction) {
-        return false;
-      }
-      if (isAuctionExpired(auction)) {
-        return false;
-      }
-      const viewerHasBid = Boolean(auction.viewer_bid) || Boolean(auction.viewer_has_bid);
-      return !viewerHasBid;
-    });
+    return list.filter((auction) => !isAuctionExpired(auction));
   }
   return [...list];
 }
@@ -206,7 +177,6 @@ export default function AuctionListScreen({ navigation }) {
       }
       const cacheKey = tab.key;
       const cachedEntry = cacheRef.current.get(cacheKey);
-      const effectiveForceReload = forceReload || Boolean(accessToken);
       const cachedItems = cachedEntry
         ? sortAuctionsByCreatedAt(sanitizeAuctionsForTab(cachedEntry.items, tab.key))
         : null;
@@ -227,24 +197,20 @@ export default function AuctionListScreen({ navigation }) {
       try {
         setError(null);
         const params = { status: tab.status };
-        if (accessToken) {
-          params.token = accessToken;
-        }
         if (tab.scope) {
           if (!accessToken) {
             throw new Error('Log in to view auctions you have bid on.');
           }
           params.scope = tab.scope;
+          params.token = accessToken;
         }
-        if (!effectiveForceReload && cachedEntry?.lastFetchedAt) {
+        if (!forceReload && cachedEntry?.lastFetchedAt) {
           params.createdAfter = cachedEntry.lastFetchedAt;
         }
         const data = await listAuctions(params);
         const sanitizedIncoming = sanitizeAuctionsForTab(data, tab.key);
         const baseList =
-          effectiveForceReload || !cachedItems
-            ? sanitizedIncoming
-            : mergeAuctions(cachedItems, sanitizedIncoming);
+          forceReload || !cachedItems ? sanitizedIncoming : mergeAuctions(cachedItems, sanitizedIncoming);
         const sorted = sortAuctionsByCreatedAt(baseList);
         const latestCreatedAt = getLatestCreatedAt(sorted);
         const nextLastFetchedAt =
@@ -256,11 +222,11 @@ export default function AuctionListScreen({ navigation }) {
         setAuctions(sorted);
       } catch (err) {
         setError(err.message);
-        if (!cachedItems || effectiveForceReload) {
+        if (!cachedItems || forceReload) {
           setAuctions([]);
         }
       } finally {
-        if (showSpinner || !cachedItems || effectiveForceReload) {
+        if (showSpinner || !cachedItems || forceReload) {
           setLoading(false);
         }
         setRefreshing(false);
@@ -347,7 +313,6 @@ export default function AuctionListScreen({ navigation }) {
               <AuctionCard
                 auction={item}
                 highlight={highlight}
-                tabKey={currentTab.key}
                 onPress={() => navigation.navigate('AuctionDetail', { id: item.id })}
               />
             );
@@ -493,9 +458,6 @@ const styles = StyleSheet.create({
   cardValue: {
     color: '#0f62fe',
     fontWeight: '600',
-  },
-  cardViewerValue: {
-    fontWeight: '700',
   },
   cardMeta: {
     marginTop: 8,
