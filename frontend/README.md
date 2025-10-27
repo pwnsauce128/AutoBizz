@@ -41,7 +41,7 @@ This directory contains a lightweight Expo/React Native client for interacting w
    echo "EXPO_PUBLIC_EAS_PROJECT_ID=00000000-0000-0000-0000-000000000000" >> .env
    ```
 
-   Replace the placeholder with the UUID found in the Expo dashboard for your project. The value is required because Expo now rejects push token requests that do not specify a project ID (SDK 49 and above).
+   Replace the placeholder with the UUID shown on your project's **Project Settings → General** page in the [Expo dashboard](https://expo.dev/). The value is required because Expo now rejects push token requests that do not specify a project ID (SDK 49 and above).
 
 3. Start the backend if it is not already running:
 
