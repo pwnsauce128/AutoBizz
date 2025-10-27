@@ -72,8 +72,8 @@ export async function listAuctions({
   return request(`/auctions${suffix}`, { token });
 }
 
-export async function fetchAuction(auctionId) {
-  return request(`/auctions/${auctionId}`);
+export async function fetchAuction(auctionId, token) {
+  return request(`/auctions/${auctionId}`, { token });
 }
 
 export async function placeBid(auctionId, amount, token) {
