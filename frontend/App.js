@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import { ImageBackground, StyleSheet } from 'react-native';
 import AuctionDetailScreen from './src/screens/AuctionDetailScreen';
 import AuctionListScreen from './src/screens/AuctionListScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -64,12 +65,32 @@ function RootNavigator() {
 }
 
 export default function App() {
+  const navigationTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: 'transparent',
+    },
+  };
+
   return (
-    <AuthProvider>
-      <NavigationContainer ref={navigationRef}>
-        <StatusBar style="dark" />
-        <RootNavigator />
-      </NavigationContainer>
-    </AuthProvider>
+    <ImageBackground source={require('./src/bg.jpeg')} style={styles.background} resizeMode="cover">
+      <AuthProvider>
+        <NavigationContainer ref={navigationRef} theme={navigationTheme} style={styles.container}>
+          <StatusBar style="dark" />
+          <RootNavigator />
+        </NavigationContainer>
+      </AuthProvider>
+    </ImageBackground>
   );
 }
+
+const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+});
