@@ -62,10 +62,6 @@ def place_bid(auction_id: uuid.UUID):
     if amount_decimal <= 0:
         abort(HTTPStatus.BAD_REQUEST, description="Bid amount must be positive")
 
-    min_price = Decimal(str(auction.min_price))
-    if amount_decimal < min_price:
-        abort(HTTPStatus.BAD_REQUEST, description="Bid below minimum price")
-
     bid = Bid(
         auction_id=auction_id,
         buyer_id=user.id,

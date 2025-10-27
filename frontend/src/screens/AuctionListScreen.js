@@ -37,12 +37,6 @@ function AuctionCard({ auction, onPress, highlight }) {
           {auction.description}
         </Text>
       ) : null}
-      <View style={styles.cardRow}>
-        <Text style={styles.cardLabel}>Minimum:</Text>
-        <Text style={styles.cardValue}>
-          {auction.min_price} {auction.currency}
-        </Text>
-      </View>
       {auction.end_at ? (
         <Text style={styles.cardMeta}>Ends at {new Date(auction.end_at).toLocaleString()}</Text>
       ) : null}
