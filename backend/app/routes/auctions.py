@@ -6,7 +6,7 @@ from http import HTTPStatus
 import uuid
 
 from flask import Blueprint, abort, jsonify, request
-from flask_jwt_extended import jwt_required, verify_jwt_in_request
+from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db
@@ -39,6 +39,8 @@ def list_auctions():
 
     query = Auction.query.options(bid_join)
 
+    buyer_user: User | None = None
+
     if status_param != "all":
         try:
             status = AuctionStatus(status_param)
@@ -53,7 +55,31 @@ def list_auctions():
         user = get_current_user()
         if user.role != UserRole.BUYER:
             abort(HTTPStatus.FORBIDDEN, description="Only buyers can view this scope")
+        buyer_user = user
         query = query.filter(Auction.bids.any(Bid.buyer_id == user.id))
+    else:
+        try:
+            verify_jwt_in_request(optional=True)
+        except TypeError:  # pragma: no cover - fallback for older versions
+            pass
+        try:
+            identity = get_jwt_identity()
+        except RuntimeError:  # No JWT present in the request
+            identity = None
+        if identity:
+            try:
+                user_uuid = uuid.UUID(str(identity))
+            except (TypeError, ValueError):  # pragma: no cover - defensive branch
+                abort(HTTPStatus.UNAUTHORIZED, description="Unknown user")
+            buyer_candidate = User.query.filter_by(id=user_uuid).first()
+            if buyer_candidate is not None:
+                if not buyer_candidate.is_active():
+                    abort(HTTPStatus.FORBIDDEN, description="User account is suspended")
+                if buyer_candidate.role == UserRole.BUYER:
+                    buyer_user = buyer_candidate
+
+    if scope is None and buyer_user is not None:
+        query = query.filter(~Auction.bids.any(Bid.buyer_id == buyer_user.id))
 
     if created_after_raw:
         parsed_raw = created_after_raw.replace("Z", "+00:00")
@@ -71,7 +97,10 @@ def list_auctions():
         query = query.order_by(Auction.created_at.desc())
 
     auctions = query.limit(AUCTIONS_PER_PAGE).all()
-    return jsonify([serialize_auction_preview(auction) for auction in auctions])
+    current_user_id = buyer_user.id if scope == "participating" and buyer_user is not None else None
+    return jsonify(
+        [serialize_auction_preview(auction, current_user_id=current_user_id) for auction in auctions]
+    )
 
 
 def _normalize_images(images: object) -> list[str]:
@@ -337,7 +366,15 @@ def delete_auction(auction_id: uuid.UUID):
     return ("", HTTPStatus.NO_CONTENT)
 
 
-def serialize_auction_preview(auction: Auction) -> dict:
+def serialize_auction_preview(
+    auction: Auction, *, current_user_id: uuid.UUID | None = None
+) -> dict:
+    user_bid = None
+    if current_user_id is not None:
+        for bid in auction.bids:
+            if bid.buyer_id == current_user_id:
+                user_bid = serialize_bid(bid)
+                break
     return {
         "id": str(auction.id),
         "title": auction.title,
@@ -350,6 +387,7 @@ def serialize_auction_preview(auction: Auction) -> dict:
         "best_bid": serialize_bid(auction.bids[0]) if auction.bids else None,
         "image_urls": auction.image_urls,
         "carte_grise_image_url": auction.carte_grise_image_url,
+        "user_bid": user_bid,
     }
 
 
