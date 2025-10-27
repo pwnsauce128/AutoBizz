@@ -41,6 +41,7 @@ function AuctionRow({
   const bestBid = auction.best_bid;
   const highestBidder = bestBid?.buyer_username || null;
   const highestBidderLabel = bestBid ? highestBidder || 'Unknown bidder' : 'No bids yet';
+  const highestBidLabel = bestBid ? `${bestBid.amount} ${auction.currency}` : 'No bids yet';
   const isSellerView = mode === 'seller';
   const hasWinningBid = Boolean(bestBid && highestBidder);
   const isExpired = auction.end_at ? new Date(auction.end_at) < new Date() : false;
@@ -77,6 +78,12 @@ function AuctionRow({
         <Text style={styles.cardLabel}>Highest bidder</Text>
         <Text style={[styles.cardValue, !bestBid && styles.cardValueMuted]}>
           {highestBidderLabel}
+        </Text>
+      </View>
+      <View style={styles.cardRow}>
+        <Text style={styles.cardLabel}>Highest bid</Text>
+        <Text style={[styles.cardValue, !bestBid && styles.cardValueMuted]}>
+          {highestBidLabel}
         </Text>
       </View>
       {auction.end_at ? (
