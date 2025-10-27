@@ -39,9 +39,14 @@ export async function registerForPushNotificationsAsync() {
     Constants.easConfig?.projectId ??
     Constants.manifest?.extra?.eas?.projectId;
 
-  const tokenResponse = await Notifications.getExpoPushTokenAsync(
-    projectId ? { projectId } : undefined,
-  );
+  if (!projectId) {
+    console.warn(
+      "Expo push notifications require an EAS project ID. Set the 'EXPO_PUBLIC_EAS_PROJECT_ID' environment variable (or 'EAS_PROJECT_ID' / 'EXPO_PROJECT_ID') so it can be injected via the Expo config.",
+    );
+    return null;
+  }
+
+  const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
 
   return tokenResponse?.data ?? null;
 }
