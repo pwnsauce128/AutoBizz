@@ -147,7 +147,6 @@ export default function AuctionDetailScreen({ route }) {
           </Pressable>
         </View>
       ) : null}
-      <Text style={styles.meta}>Minimum price: {auction.min_price} {auction.currency}</Text>
       <Text style={styles.meta}>Status: {auction.status}</Text>
       {auction.end_at ? (
         <Text style={styles.meta}>Ends at {new Date(auction.end_at).toLocaleString()}</Text>

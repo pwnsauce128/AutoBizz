@@ -75,7 +75,6 @@ def test_seller_can_create_and_buyer_can_bid(client):
         json={
             "title": "Tesla Model S",
             "description": "Performance trim",
-            "min_price": 50000,
             "currency": "EUR",
             "images": ["https://example.com/car.jpg"],
             "carte_grise_image": "https://example.com/carte-grise.jpg",
@@ -133,7 +132,6 @@ def test_second_buyer_can_bid_below_best(client):
         json={
             "title": "Peugeot 208",
             "description": "GT Line",
-            "min_price": 20000,
             "currency": "EUR",
             "images": ["https://example.com/peugeot-front.jpg"],
             "carte_grise_image": "https://example.com/peugeot-carte.jpg",
@@ -195,7 +193,6 @@ def test_seller_can_edit_and_delete_after_bid(client):
         json={
             "title": "Citroen DS",
             "description": "Showroom condition",
-            "min_price": 42000,
             "currency": "EUR",
             "images": ["https://example.com/ds-front.jpg"],
             "carte_grise_image": "https://example.com/ds-carte.jpg",
@@ -260,7 +257,6 @@ def test_buyer_cannot_exceed_bid_limit(client):
         json={
             "title": "Renault 5",
             "description": "Classic",
-            "min_price": 1000,
             "carte_grise_image": "https://example.com/carte-grise-renault.jpg",
         },
     )
@@ -323,7 +319,6 @@ def test_create_auction_requires_carte_grise_image(client):
         json={
             "title": "Missing Carte Grise",
             "description": "Should fail",
-            "min_price": 5000,
         },
     )
     assert create_response.status_code == 400
@@ -355,7 +350,6 @@ def test_seller_can_update_images_with_descriptor_payload(client):
         json={
             "title": "Land Rover Defender",
             "description": "Classic 110",
-            "min_price": 35000,
             "carte_grise_image": "https://example.com/carte-grise-defender.jpg",
         },
     )

@@ -26,12 +26,6 @@ function AuctionPreviewCard({ auction, onPress }) {
       ) : null}
       <Text style={styles.cardTitle}>{auction.title}</Text>
       <View style={styles.cardRow}>
-        <Text style={styles.cardLabel}>Minimum price</Text>
-        <Text style={styles.cardValue}>
-          {auction.min_price} {auction.currency}
-        </Text>
-      </View>
-      <View style={styles.cardRow}>
         <Text style={styles.cardLabel}>Best bid</Text>
         <Text style={styles.cardValue}>
           {hasBestBid ? `${bestBid.amount} ${auction.currency}` : 'No bids yet'}

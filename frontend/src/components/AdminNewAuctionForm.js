@@ -18,7 +18,6 @@ import { useAuth } from '../context/AuthContext';
 export default function AdminNewAuctionForm({ onCreated }) {
   const { accessToken } = useAuth();
   const [title, setTitle] = useState('');
-  const [minPrice, setMinPrice] = useState('');
   const [description, setDescription] = useState('');
   const [selectedImages, setSelectedImages] = useState([]);
   const [carteGriseImage, setCarteGriseImage] = useState(null);
@@ -123,12 +122,6 @@ export default function AdminNewAuctionForm({ onCreated }) {
       return;
     }
 
-    const numericMinPrice = Number(minPrice);
-    if (!minPrice || Number.isNaN(numericMinPrice) || numericMinPrice <= 0) {
-      Alert.alert('Invalid price', 'Enter a valid minimum price greater than 0.');
-      return;
-    }
-
     if (!carteGriseImage) {
       Alert.alert('Carte grise required', 'Upload the vehicle carte grise before publishing.');
       return;
@@ -140,7 +133,6 @@ export default function AdminNewAuctionForm({ onCreated }) {
         {
           title: trimmedTitle,
           description: trimmedDescription,
-          min_price: numericMinPrice,
           currency: 'EUR',
           images: selectedImages.map((item) => item.dataUrl),
           carte_grise_image: carteGriseImage.dataUrl,
@@ -148,7 +140,6 @@ export default function AdminNewAuctionForm({ onCreated }) {
         accessToken,
       );
       setTitle('');
-      setMinPrice('');
       setDescription('');
       setSelectedImages([]);
       setCarteGriseImage(null);
@@ -194,17 +185,6 @@ export default function AdminNewAuctionForm({ onCreated }) {
             onChangeText={setDescription}
             multiline
             textAlignVertical="top"
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Minimum price (EUR)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. 25000"
-            keyboardType="decimal-pad"
-            value={minPrice}
-            onChangeText={setMinPrice}
           />
         </View>
 

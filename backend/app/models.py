@@ -84,7 +84,6 @@ class Auction(BaseModel):
 
     title: Mapped[str] = mapped_column(db.String(255), nullable=False)
     description: Mapped[str] = mapped_column(db.Text, nullable=False)
-    min_price: Mapped[float] = mapped_column(db.Numeric(10, 2), nullable=False)
     currency: Mapped[str] = mapped_column(db.String(3), default="EUR", nullable=False)
     image_urls: Mapped[list[str]] = mapped_column(db.JSON, default=list)
     carte_grise_image_url: Mapped[str | None] = mapped_column(db.Text)

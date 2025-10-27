@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http import HTTPStatus
 import uuid
 
@@ -26,9 +25,6 @@ from .utils import get_current_user, role_required
 
 AUCTIONS_PER_PAGE = 20
 MAX_AUCTION_IMAGES = 8
-TWO_PLACES = Decimal("0.01")
-
-
 auctions_bp = Blueprint("auctions", __name__)
 
 
@@ -174,22 +170,6 @@ def _normalize_currency(value: object) -> str:
     return normalized
 
 
-def _parse_price(raw_value: object) -> Decimal:
-    if raw_value is None:
-        abort(HTTPStatus.BAD_REQUEST, description="Missing minimum price")
-    try:
-        price = Decimal(str(raw_value))
-    except (TypeError, InvalidOperation):
-        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be numeric")
-    try:
-        quantized = price.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
-    except InvalidOperation:
-        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be numeric")
-    if quantized <= 0:
-        abort(HTTPStatus.BAD_REQUEST, description="Minimum price must be positive")
-    return quantized
-
-
 @auctions_bp.post("")
 @jwt_required()
 @role_required(UserRole.SELLER, UserRole.ADMIN)
@@ -198,7 +178,6 @@ def create_auction():
     data = request.get_json(force=True)
     title = _sanitize_text(data.get("title"), "title")
     description = _sanitize_text(data.get("description"), "description")
-    min_price_value = _parse_price(data.get("min_price"))
     currency = _normalize_currency(data.get("currency", "EUR"))
     images = _normalize_images(data.get("images", []))
     carte_grise_image = _normalize_single_image(
@@ -210,7 +189,6 @@ def create_auction():
         seller_id=user.id,
         title=title,
         description=description,
-        min_price=min_price_value,
         currency=currency,
         image_urls=images,
         carte_grise_image_url=carte_grise_image,
@@ -307,10 +285,6 @@ def update_auction(auction_id: uuid.UUID):
         auction.description = _sanitize_text(data.get("description"), "description")
         updates_applied = True
 
-    if "min_price" in data:
-        auction.min_price = _parse_price(data.get("min_price"))
-        updates_applied = True
-
     if "currency" in data:
         auction.currency = _normalize_currency(data.get("currency"))
         updates_applied = True
@@ -368,7 +342,6 @@ def serialize_auction_preview(auction: Auction) -> dict:
         "id": str(auction.id),
         "title": auction.title,
         "description": auction.description,
-        "min_price": float(auction.min_price),
         "currency": auction.currency,
         "status": auction.status.value,
         "created_at": auction.created_at.isoformat() if auction.created_at else None,

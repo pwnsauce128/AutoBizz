@@ -74,12 +74,6 @@ function AuctionRow({
         </Text>
       ) : null}
       <View style={styles.cardRow}>
-        <Text style={styles.cardLabel}>Minimum price</Text>
-        <Text style={styles.cardValue}>
-          {auction.min_price} {auction.currency}
-        </Text>
-      </View>
-      <View style={styles.cardRow}>
         <Text style={styles.cardLabel}>Highest bidder</Text>
         <Text style={[styles.cardValue, !bestBid && styles.cardValueMuted]}>
           {highestBidderLabel}
@@ -124,7 +118,7 @@ export default function AuctionManagementList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [formValues, setFormValues] = useState({ title: '', description: '', min_price: '' });
+  const [formValues, setFormValues] = useState({ title: '', description: '' });
   const [formImages, setFormImages] = useState([]);
   const [formCarteGriseImage, setFormCarteGriseImage] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -172,7 +166,6 @@ export default function AuctionManagementList({
         setFormValues({
           title: detail.title || '',
           description: detail.description || '',
-          min_price: String(detail.min_price ?? ''),
         });
         const existingImages = Array.isArray(detail.image_urls)
           ? detail.image_urls
@@ -204,7 +197,7 @@ export default function AuctionManagementList({
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormValues({ title: '', description: '', min_price: '' });
+    setFormValues({ title: '', description: '' });
     setFormImages([]);
     setFormCarteGriseImage(null);
   };
@@ -303,12 +296,6 @@ export default function AuctionManagementList({
       Alert.alert('Missing description', 'Please describe the vehicle.');
       return;
     }
-    const numericPrice = Number(formValues.min_price);
-    if (!formValues.min_price || Number.isNaN(numericPrice) || numericPrice <= 0) {
-      Alert.alert('Invalid price', 'Enter a minimum price greater than 0.');
-      return;
-    }
-
     if (!formCarteGriseImage) {
       Alert.alert('Carte grise required', 'Upload the carte grise before saving changes.');
       return;
@@ -321,7 +308,6 @@ export default function AuctionManagementList({
         {
           title: formValues.title.trim(),
           description: formValues.description.trim(),
-          min_price: numericPrice,
           images: formImages.map((item) => item.dataUrl),
           carte_grise_image: formCarteGriseImage.dataUrl,
         },
@@ -449,13 +435,6 @@ export default function AuctionManagementList({
           <Text style={styles.cartePlaceholder}>No carte grise uploaded yet.</Text>
         )}
       </View>
-      <TextInput
-        style={styles.input}
-        placeholder="Minimum price"
-        keyboardType="decimal-pad"
-        value={formValues.min_price}
-        onChangeText={(value) => setFormValues((current) => ({ ...current, min_price: value }))}
-      />
       <View style={styles.editActions}>
         <Pressable
           onPress={cancelEdit}

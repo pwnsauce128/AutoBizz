@@ -7,7 +7,7 @@ This repository contains a Flask-based backend prototype for the AutoBet MVP des
 - JWT authentication with role-based access control for admins, sellers, and buyers.
 - Administrative APIs for user provisioning and status updates.
 - Seller-facing auction CRUD with automatic 24h window enforcement and notification fan-out.
-- Buyer bidding API with validation of minimum price, highest bid requirement, and two-bid limit per auction.
+- Buyer bidding API with validation of positive bid amounts, highest bid requirement, and two-bid limit per auction.
 - Notification registry endpoints for Expo push tokens plus persistence of notification events.
 - `/time` endpoint exposing canonical server time for client countdown synchronization.
 - SQLAlchemy models aligned with the proposed data schema (users, auctions, bids, notifications, audit logs, devices).
