@@ -86,24 +86,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
+    color: '#ffffff',
   },
   subtitle: {
     marginTop: 4,
-    color: '#4a4a4a',
+    color: '#e2e8f0',
   },
   logoutButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#ffe5e5',
+    backgroundColor: 'rgba(217, 45, 32, 0.12)',
   },
   logout: {
-    color: '#d92d20',
+    color: '#fca5a5',
     fontWeight: '600',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#e0e5f2',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginHorizontal: 20,
     borderRadius: 12,
     padding: 4,
@@ -115,15 +116,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabButtonActive: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 2,
   },
   tabLabel: {
     fontWeight: '500',
-    color: '#3d3d3d',
+    color: '#e2e8f0',
   },
   tabLabelActive: {
     color: '#0f62fe',

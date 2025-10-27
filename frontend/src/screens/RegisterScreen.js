@@ -48,6 +48,7 @@ export default function RegisterScreen({ navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Username"
+          placeholderTextColor="#94a3b8"
           value={username}
           autoCapitalize="none"
           onChangeText={setUsername}
@@ -57,6 +58,7 @@ export default function RegisterScreen({ navigation }) {
           placeholder="Email"
           keyboardType="email-address"
           autoCapitalize="none"
+          placeholderTextColor="#94a3b8"
           value={email}
           onChangeText={setEmail}
         />
@@ -64,6 +66,7 @@ export default function RegisterScreen({ navigation }) {
           style={styles.input}
           placeholder="Password"
           secureTextEntry
+          placeholderTextColor="#94a3b8"
           value={password}
           onChangeText={setPassword}
         />
@@ -87,27 +90,32 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     borderRadius: 16,
     padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 6,
   },
   title: {
     fontSize: 24,
     fontWeight: '600',
     marginBottom: 24,
+    color: '#f8fafc',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d0d5dd',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 12,
     fontSize: 16,
+    color: '#f8fafc',
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
   },
   button: {
     backgroundColor: '#0f62fe',

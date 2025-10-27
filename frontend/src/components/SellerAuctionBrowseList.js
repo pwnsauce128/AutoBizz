@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   helperText: {
     textAlign: 'center',
-    color: '#4a4a4a',
+    color: '#e2e8f0',
     marginTop: 24,
   },
   errorText: {
@@ -148,18 +148,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   infoText: {
-    color: '#4a4a4a',
+    color: '#e2e8f0',
     marginBottom: 16,
     textAlign: 'center',
     fontSize: 14,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -168,12 +168,13 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: 10,
     marginBottom: 12,
-    backgroundColor: '#e5e5e5',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
+    color: '#ffffff',
   },
   cardRow: {
     flexDirection: 'row',
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cardLabel: {
-    color: '#6f6f6f',
+    color: '#e5e7eb',
     fontWeight: '500',
   },
   cardValue: {
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
   },
   cardStatus: {
     marginTop: 8,
-    color: '#6f6f6f',
+    color: '#e5e7eb',
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
