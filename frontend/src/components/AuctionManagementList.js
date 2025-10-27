@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   },
   helperText: {
     textAlign: 'center',
-    color: '#4a4a4a',
+    color: '#e2e8f0',
     marginTop: 32,
   },
   errorText: {
@@ -517,12 +517,12 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -530,16 +530,16 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
   },
   cardHighlighted: {
-    backgroundColor: '#e8f0ff',
+    backgroundColor: 'rgba(15, 98, 254, 0.2)',
     borderWidth: 1,
-    borderColor: '#bcd4ff',
+    borderColor: 'rgba(15, 98, 254, 0.6)',
   },
   cardImage: {
     width: '100%',
     height: 140,
     borderRadius: 10,
     marginBottom: 12,
-    backgroundColor: '#e5e5e5',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -552,9 +552,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     marginRight: 12,
+    color: '#ffffff',
   },
   cardDescription: {
-    color: '#4a4a4a',
+    color: '#e2e8f0',
     marginBottom: 8,
   },
   cardStatus: {
@@ -569,18 +570,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardLabel: {
-    color: '#6f6f6f',
+    color: '#e5e7eb',
     fontWeight: '500',
   },
   cardValue: {
-    color: '#0f62fe',
+    color: '#9cc4ff',
     fontWeight: '600',
   },
   cardValueMuted: {
-    color: '#6f6f6f',
+    color: '#cbd5f5',
   },
   cardMeta: {
-    color: '#6f6f6f',
+    color: '#e5e7eb',
     fontSize: 12,
     marginBottom: 12,
   },
@@ -614,11 +615,11 @@ const styles = StyleSheet.create({
   },
   editCard: {
     marginTop: 16,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 14,
     padding: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 4,
   },
@@ -626,6 +627,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
+    color: '#ffffff',
   },
   input: {
     borderWidth: 1,
@@ -635,6 +637,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 12,
     fontSize: 16,
+    color: '#ffffff',
   },
   multiline: {
     minHeight: 90,
@@ -656,12 +659,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   imageButtonLabel: {
-    color: '#0f62fe',
+    color: '#9cc4ff',
     fontWeight: '600',
   },
   imageHelper: {
     marginTop: 6,
-    color: '#6f6f6f',
+    color: '#cbd5f5',
     fontSize: 12,
   },
   imageGrid: {
@@ -677,9 +680,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 8,
     position: 'relative',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: 1,
-    borderColor: '#d0d5dd',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   imageThumbnail: {
     width: '100%',
@@ -707,6 +710,7 @@ const styles = StyleSheet.create({
   carteLabel: {
     fontWeight: '600',
     marginBottom: 8,
+    color: '#ffffff',
   },
   carteButton: {
     borderWidth: 1,
@@ -718,12 +722,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#eef3ff',
   },
   carteButtonLabel: {
-    color: '#0f62fe',
+    color: '#9cc4ff',
     fontWeight: '600',
   },
   carteHelper: {
     marginTop: 6,
-    color: '#6f6f6f',
+    color: '#cbd5f5',
     fontSize: 12,
   },
   cartePreview: {
@@ -733,8 +737,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#d0d5dd',
-    backgroundColor: '#fff',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   carteImage: {
     width: 200,
@@ -753,12 +757,12 @@ const styles = StyleSheet.create({
   },
   cartePlaceholder: {
     marginTop: 10,
-    color: '#6f6f6f',
+    color: '#cbd5f5',
     fontSize: 12,
   },
   imagePlaceholder: {
     marginTop: 10,
-    color: '#6f6f6f',
+    color: '#cbd5f5',
     fontSize: 12,
   },
   editActions: {
@@ -770,10 +774,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#eef2ff',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   cancelLabel: {
-    color: '#4a4a4a',
+    color: '#e2e8f0',
     fontWeight: '600',
   },
   saveButton: {
