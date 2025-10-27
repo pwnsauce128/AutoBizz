@@ -13,11 +13,35 @@ import { listAuctions } from '../api/client';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
 
-function AuctionCard({ auction, onPress, highlight }) {
+function formatCurrency(amount, currency) {
+  if (amount === null || amount === undefined) {
+    return null;
+  }
+  const numericAmount = Number(amount);
+  if (Number.isNaN(numericAmount)) {
+    return `${amount}`;
+  }
+  if (typeof Intl !== 'undefined' && Intl.NumberFormat) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: currency || 'EUR',
+        maximumFractionDigits: 2,
+      }).format(numericAmount);
+    } catch (error) {
+      // Fall back to a manual format below
+    }
+  }
+  const normalizedCurrency = currency || 'EUR';
+  return `${numericAmount.toFixed(2)} ${normalizedCurrency}`;
+}
+
+function AuctionCard({ auction, onPress, highlight, buyerBidAmount }) {
   const previewImage =
     (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
     (Array.isArray(auction.images) && auction.images[0]) ||
     null;
+  const formattedBuyerBid = buyerBidAmount != null ? formatCurrency(buyerBidAmount, auction.currency) : null;
   return (
     <Pressable
       style={({ pressed }) => [
@@ -37,6 +61,7 @@ function AuctionCard({ auction, onPress, highlight }) {
           {auction.description}
         </Text>
       ) : null}
+      {formattedBuyerBid ? <Text style={styles.cardBidAmount}>Your bid: {formattedBuyerBid}</Text> : null}
       {auction.end_at ? (
         <Text style={styles.cardMeta}>Ends at {new Date(auction.end_at).toLocaleString()}</Text>
       ) : null}
@@ -198,6 +223,9 @@ export default function AuctionListScreen({ navigation }) {
           params.scope = tab.scope;
           params.token = accessToken;
         }
+        if (accessToken && !params.token) {
+          params.token = accessToken;
+        }
         if (!forceReload && cachedEntry?.lastFetchedAt) {
           params.createdAfter = cachedEntry.lastFetchedAt;
         }
@@ -240,7 +268,7 @@ export default function AuctionListScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      loadAuctions(currentTab);
+      loadAuctions(currentTab, { forceReload: true });
     }, [currentTab, loadAuctions]),
   );
 
@@ -303,10 +331,16 @@ export default function AuctionListScreen({ navigation }) {
                   ? 'won'
                   : 'lost'
                 : null;
+            const buyerBidAmount =
+              currentTab.key === 'participating'
+                ? item?.user_bid?.amount ??
+                  (item?.best_bid?.buyer_id === userId ? item?.best_bid?.amount : null)
+                : null;
             return (
               <AuctionCard
                 auction={item}
                 highlight={highlight}
+                buyerBidAmount={buyerBidAmount}
                 onPress={() => navigation.navigate('AuctionDetail', { id: item.id })}
               />
             );
@@ -439,6 +473,11 @@ const styles = StyleSheet.create({
   cardDescription: {
     color: '#4a4a4a',
     marginBottom: 12,
+  },
+  cardBidAmount: {
+    marginBottom: 8,
+    color: '#0f62fe',
+    fontWeight: '600',
   },
   cardRow: {
     flexDirection: 'row',
