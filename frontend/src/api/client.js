@@ -48,6 +48,14 @@ export async function login({ usernameOrEmail, password }) {
   });
 }
 
+export async function registerDevice(expoPushToken, token) {
+  return request('/devices', {
+    method: 'POST',
+    token,
+    body: { expo_push_token: expoPushToken },
+  });
+}
+
 export async function listAuctions(
   {
     status = 'active',
@@ -165,4 +173,5 @@ export default {
   listUsers,
   createUser,
   updateUser,
+  registerDevice,
 };

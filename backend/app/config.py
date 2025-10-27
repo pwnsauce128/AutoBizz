@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from datetime import timedelta
 import os
 
+from sqlalchemy.pool import StaticPool
+from typing import ClassVar
+
 
 @dataclass
 class BaseConfig:
@@ -27,6 +30,11 @@ class TestingConfig(BaseConfig):
     TESTING: bool = True
     SQLALCHEMY_DATABASE_URI: str = "sqlite:///:memory:"
     JWT_SECRET_KEY: str = "test-secret"
+    PUSH_DELIVERY_USE_THREAD: bool = False
+    SQLALCHEMY_ENGINE_OPTIONS: ClassVar[dict[str, object]] = {
+        "poolclass": StaticPool,
+        "connect_args": {"check_same_thread": False},
+    }
 
 
 @dataclass
