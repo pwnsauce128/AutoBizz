@@ -169,6 +169,7 @@ export default function AdminNewAuctionForm({ onCreated }) {
           <TextInput
             style={styles.input}
             placeholder="e.g. 2019 Tesla Model 3"
+            placeholderTextColor="#94a3b8"
             value={title}
             onChangeText={setTitle}
             autoCapitalize="words"
@@ -181,6 +182,7 @@ export default function AdminNewAuctionForm({ onCreated }) {
           <TextInput
             style={[styles.input, styles.multiline]}
             placeholder="Highlight the vehicle condition, mileage, upgrades, etc."
+            placeholderTextColor="#94a3b8"
             value={description}
             onChangeText={setDescription}
             multiline
@@ -261,13 +263,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 24,
     marginBottom: 8,
+    color: '#ffffff',
   },
   helper: {
-    color: '#4a4a4a',
+    color: '#e2e8f0',
     marginBottom: 16,
   },
   helperSmall: {
-    color: '#6f6f6f',
+    color: '#cbd5f5',
     marginTop: 6,
     fontSize: 12,
   },
@@ -277,15 +280,17 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: '600',
     marginBottom: 8,
+    color: '#f8fafc',
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#d0d5dd',
+    borderColor: 'rgba(148, 163, 184, 0.5)',
     fontSize: 16,
+    color: '#f8fafc',
   },
   multiline: {
     minHeight: 120,
@@ -298,7 +303,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 24,
     alignItems: 'center',
-    backgroundColor: '#eef3ff',
+    backgroundColor: 'rgba(15, 98, 254, 0.12)',
   },
   uploadButtonDisabled: {
     opacity: 0.5,
@@ -320,9 +325,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 8,
     position: 'relative',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: '#d0d5dd',
+    borderColor: 'rgba(148, 163, 184, 0.5)',
   },
   thumbnail: {
     width: '100%',
@@ -366,8 +371,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#d0d5dd',
-    backgroundColor: '#fff',
+    borderColor: 'rgba(148, 163, 184, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   carteImage: {
     width: 200,
