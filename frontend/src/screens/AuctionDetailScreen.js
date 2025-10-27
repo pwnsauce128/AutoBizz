@@ -42,7 +42,7 @@ export default function AuctionDetailScreen({ route }) {
   const loadAuction = async () => {
     setLoading(true);
     try {
-      const data = await fetchAuction(id, accessToken);
+      const data = await fetchAuction(id);
       setAuction(data);
       const hasImages =
         (Array.isArray(data.image_urls) && data.image_urls.length > 0) ||
@@ -59,13 +59,9 @@ export default function AuctionDetailScreen({ route }) {
 
   useEffect(() => {
     loadAuction();
-  }, [accessToken, id]);
+  }, []);
 
   const handleBid = async () => {
-    if (auction?.viewer_bid) {
-      Alert.alert('Bidding unavailable', 'You have already placed a bid on this auction.');
-      return;
-    }
     const numericAmount = Number(bidAmount);
     if (!bidAmount || Number.isNaN(numericAmount)) {
       Alert.alert('Enter amount', 'Please enter a valid bid amount.');
@@ -97,10 +93,7 @@ export default function AuctionDetailScreen({ route }) {
   }
 
   const isBuyer = role === 'buyer';
-  const viewerBid = auction.viewer_bid;
-  const hasViewerBid = Boolean(viewerBid);
-  const canBid = Boolean(accessToken && isBuyer && !hasViewerBid);
-  const viewerBidAmountText = viewerBid ? `${viewerBid.amount} ${auction.currency}` : null;
+  const canBid = Boolean(accessToken && isBuyer);
 
   const imageUrls =
     (Array.isArray(auction.image_urls) && auction.image_urls) ||
@@ -160,20 +153,6 @@ export default function AuctionDetailScreen({ route }) {
         <Text style={styles.meta}>Ends at {new Date(auction.end_at).toLocaleString()}</Text>
       ) : null}
 
-      {isBuyer && hasViewerBid ? (
-        <View style={styles.viewerBidBox}>
-          <Text style={styles.viewerBidTitle}>Your bid</Text>
-          <Text style={styles.viewerBidAmount}>
-            {viewerBid.amount} {auction.currency}
-          </Text>
-          {viewerBid.created_at ? (
-            <Text style={styles.viewerBidMeta}>
-              Placed at {new Date(viewerBid.created_at).toLocaleString()}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
-
       {!isBuyer ? (
         <>
           <Text style={styles.sectionTitle}>Current best bid</Text>
@@ -190,7 +169,6 @@ export default function AuctionDetailScreen({ route }) {
             keyboardType="decimal-pad"
             value={bidAmount}
             onChangeText={setBidAmount}
-            editable={!isSubmitting}
           />
           <Pressable
             onPress={handleBid}
@@ -201,11 +179,7 @@ export default function AuctionDetailScreen({ route }) {
           </Pressable>
         </View>
       ) : (
-        <Text style={styles.info}>
-          {accessToken && isBuyer
-            ? `You already placed a bid${viewerBidAmountText ? ` of ${viewerBidAmountText}` : ''}.`
-            : 'Log in as a buyer to place bids.'}
-        </Text>
+        <Text style={styles.info}>Log in as a buyer to place bids.</Text>
       )}
       <Modal
         visible={Boolean(modalImageUri)}
@@ -281,27 +255,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6f6f6f',
     marginBottom: 6,
-  },
-  viewerBidBox: {
-    marginTop: 20,
-    backgroundColor: '#eef5ff',
-    borderRadius: 12,
-    padding: 16,
-  },
-  viewerBidTitle: {
-    fontWeight: '600',
-    color: '#0f62fe',
-    marginBottom: 4,
-  },
-  viewerBidAmount: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f62fe',
-  },
-  viewerBidMeta: {
-    color: '#6f6f6f',
-    fontSize: 12,
-    marginTop: 4,
   },
   sectionTitle: {
     fontSize: 18,
