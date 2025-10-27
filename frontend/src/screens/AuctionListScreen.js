@@ -258,12 +258,22 @@ export default function AuctionListScreen({ navigation }) {
   );
 
   useEffect(() => {
-    const cachedEntry = cacheRef.current.get(currentTab.key);
-    const shouldShowSpinner = isFirstLoadRef.current || !cachedEntry;
-    loadAuctions(currentTab, { showSpinner: shouldShowSpinner, forceReload: !cachedEntry });
-    if (isFirstLoadRef.current) {
-      isFirstLoadRef.current = false;
-    }
+    let isActive = true;
+
+    const runInitialLoad = async () => {
+      const cachedEntry = cacheRef.current.get(currentTab.key);
+      const shouldShowSpinner = isFirstLoadRef.current || !cachedEntry;
+      await loadAuctions(currentTab, { showSpinner: shouldShowSpinner, forceReload: !cachedEntry });
+      if (isActive && isFirstLoadRef.current) {
+        isFirstLoadRef.current = false;
+      }
+    };
+
+    runInitialLoad();
+
+    return () => {
+      isActive = false;
+    };
   }, [currentTab, loadAuctions]);
 
   useFocusEffect(
