@@ -86,9 +86,6 @@ def list_auctions():
         query = query.filter(Auction.bids.any(Bid.buyer_id == user.id))
         viewer = user
 
-    if viewer is None:
-        viewer = _resolve_optional_viewer()
-
     if created_after_raw:
         parsed_raw = created_after_raw.replace("Z", "+00:00")
         try:
@@ -397,10 +394,9 @@ def delete_auction(auction_id: uuid.UUID):
 def serialize_auction_preview(auction: Auction, *, viewer: User | None = None) -> dict:
     viewer_bid = None
     if viewer is not None:
-        for bid in auction.bids:
-            if bid.buyer_id == viewer.id:
-                viewer_bid = bid
-                break
+        viewer_bids = [bid for bid in auction.bids if bid.buyer_id == viewer.id]
+        if viewer_bids:
+            viewer_bid = max(viewer_bids, key=lambda bid: bid.amount)
 
     return {
         "id": str(auction.id),
@@ -417,6 +413,7 @@ def serialize_auction_preview(auction: Auction, *, viewer: User | None = None) -
         "viewer_has_bid": viewer_bid is not None,
         "image_urls": auction.image_urls,
         "carte_grise_image_url": auction.carte_grise_image_url,
+        "viewer_bid": serialize_bid(viewer_bid) if viewer_bid else None,
     }
 
 
