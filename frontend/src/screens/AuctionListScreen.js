@@ -179,6 +179,8 @@ export default function AuctionListScreen({ navigation }) {
   const [activeTabKey, setActiveTabKey] = useState('all');
   const isFirstLoadRef = useRef(true);
   const cacheRef = useRef(new Map());
+  const activeTabKeyRef = useRef(activeTabKey);
+  const requestStateRef = useRef(new Map());
 
   const handleLogout = useCallback(() => {
     logout();
@@ -189,12 +191,48 @@ export default function AuctionListScreen({ navigation }) {
     [activeTabKey],
   );
 
+  useEffect(() => {
+    activeTabKeyRef.current = activeTabKey;
+    requestStateRef.current.forEach((state, key) => {
+      if (key !== activeTabKey && state?.controller) {
+        state.controller.abort();
+        requestStateRef.current.set(key, { ...state, controller: null });
+      }
+    });
+  }, [activeTabKey]);
+
+  useEffect(() => {
+    return () => {
+      requestStateRef.current.forEach((state) => {
+        if (state?.controller) {
+          state.controller.abort();
+        }
+      });
+    };
+  }, []);
+
   const loadAuctions = useCallback(
     async (tab, { showSpinner = false, forceReload = false } = {}) => {
       if (!tab) {
         return;
       }
       const cacheKey = tab.key;
+      const isActiveTab = () => activeTabKeyRef.current === cacheKey;
+      const existingState = requestStateRef.current.get(cacheKey);
+      if (existingState?.controller) {
+        existingState.controller.abort();
+      }
+      const controller = new AbortController();
+      const requestId = (existingState?.latestRequestId || 0) + 1;
+      requestStateRef.current.set(cacheKey, { latestRequestId: requestId, controller });
+      const isLatestRequest = () => requestStateRef.current.get(cacheKey)?.latestRequestId === requestId;
+      const finalizeRequestState = () => {
+        const state = requestStateRef.current.get(cacheKey);
+        if (state?.latestRequestId === requestId) {
+          requestStateRef.current.set(cacheKey, { latestRequestId: requestId, controller: null });
+        }
+      };
+
       const cachedEntry = cacheRef.current.get(cacheKey);
       const cachedItems = cachedEntry
         ? sortAuctionsByCreatedAt(sanitizeAuctionsForTab(cachedEntry.items, tab.key))
@@ -208,13 +246,17 @@ export default function AuctionListScreen({ navigation }) {
       }
 
       if (cachedItems) {
-        setAuctions(cachedItems);
-        setLoading(false);
-      } else if (showSpinner) {
+        if (isActiveTab()) {
+          setAuctions(cachedItems);
+          setLoading(false);
+        }
+      } else if (showSpinner && isActiveTab()) {
         setLoading(true);
       }
-      try {
+      if (isActiveTab()) {
         setError(null);
+      }
+      try {
         const params = { status: tab.status };
         if (tab.scope) {
           if (!accessToken) {
@@ -229,7 +271,7 @@ export default function AuctionListScreen({ navigation }) {
         if (!forceReload && cachedEntry?.lastFetchedAt) {
           params.createdAfter = cachedEntry.lastFetchedAt;
         }
-        const data = await listAuctions(params);
+        const data = await listAuctions(params, { signal: controller.signal });
         const sanitizedIncoming = sanitizeAuctionsForTab(data, tab.key);
         const baseList =
           forceReload || !cachedItems ? sanitizedIncoming : mergeAuctions(cachedItems, sanitizedIncoming);
@@ -237,19 +279,38 @@ export default function AuctionListScreen({ navigation }) {
         const latestCreatedAt = getLatestCreatedAt(sorted);
         const nextLastFetchedAt =
           latestCreatedAt ?? cachedEntry?.lastFetchedAt ?? (sanitizedIncoming.length > 0 ? new Date().toISOString() : null);
+        if (!isLatestRequest()) {
+          return;
+        }
         cacheRef.current.set(cacheKey, {
           items: sorted,
           lastFetchedAt: nextLastFetchedAt,
         });
-        setAuctions(sorted);
+        if (isActiveTab()) {
+          setAuctions(sorted);
+        }
       } catch (err) {
-        setError(err.message);
-        if (!cachedItems || forceReload) {
-          setAuctions([]);
+        if (err?.name === 'AbortError') {
+          return;
+        }
+        if (!isLatestRequest()) {
+          return;
+        }
+        if (isActiveTab()) {
+          setError(err.message);
+          if (!cachedItems || forceReload) {
+            setAuctions([]);
+          }
         }
       } finally {
+        if (!isLatestRequest()) {
+          return;
+        }
+        finalizeRequestState();
         if (showSpinner || !cachedItems || forceReload) {
-          setLoading(false);
+          if (isActiveTab()) {
+            setLoading(false);
+          }
         }
         setRefreshing(false);
       }

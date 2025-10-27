@@ -1,6 +1,6 @@
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:5000';
 
-async function request(path, { method = 'GET', body, token } = {}) {
+async function request(path, { method = 'GET', body, token, signal } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -10,6 +10,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   if (!response.ok) {
@@ -47,13 +48,16 @@ export async function login({ usernameOrEmail, password }) {
   });
 }
 
-export async function listAuctions({
-  status = 'active',
-  sort = 'fresh',
-  scope,
-  createdAfter,
-  token,
-} = {}) {
+export async function listAuctions(
+  {
+    status = 'active',
+    sort = 'fresh',
+    scope,
+    createdAfter,
+    token,
+  } = {},
+  { signal } = {},
+) {
   const params = new URLSearchParams();
   if (status) {
     params.append('status', status);
@@ -69,7 +73,7 @@ export async function listAuctions({
   }
   const query = params.toString();
   const suffix = query ? `?${query}` : '';
-  return request(`/auctions${suffix}`, { token });
+  return request(`/auctions${suffix}`, { token, signal });
 }
 
 export async function fetchAuction(auctionId) {
