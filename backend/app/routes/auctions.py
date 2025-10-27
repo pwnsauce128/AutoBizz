@@ -42,6 +42,7 @@ def list_auctions():
     bid_join = joinedload(Auction.bids).joinedload(Bid.buyer)
 
     query = Auction.query.options(bid_join)
+    viewer: User | None = None
 
     if status_param != "all":
         try:
@@ -58,6 +59,7 @@ def list_auctions():
         if user.role != UserRole.BUYER:
             abort(HTTPStatus.FORBIDDEN, description="Only buyers can view this scope")
         query = query.filter(Auction.bids.any(Bid.buyer_id == user.id))
+        viewer = user
 
     if created_after_raw:
         parsed_raw = created_after_raw.replace("Z", "+00:00")
@@ -75,7 +77,7 @@ def list_auctions():
         query = query.order_by(Auction.created_at.desc())
 
     auctions = query.limit(AUCTIONS_PER_PAGE).all()
-    return jsonify([serialize_auction_preview(auction) for auction in auctions])
+    return jsonify([serialize_auction_preview(auction, viewer=viewer) for auction in auctions])
 
 
 def _normalize_images(images: object) -> list[str]:
@@ -363,7 +365,13 @@ def delete_auction(auction_id: uuid.UUID):
     return ("", HTTPStatus.NO_CONTENT)
 
 
-def serialize_auction_preview(auction: Auction) -> dict:
+def serialize_auction_preview(auction: Auction, *, viewer: User | None = None) -> dict:
+    viewer_bid = None
+    if viewer is not None:
+        viewer_bids = [bid for bid in auction.bids if bid.buyer_id == viewer.id]
+        if viewer_bids:
+            viewer_bid = max(viewer_bids, key=lambda bid: bid.amount)
+
     return {
         "id": str(auction.id),
         "title": auction.title,
@@ -377,6 +385,7 @@ def serialize_auction_preview(auction: Auction) -> dict:
         "best_bid": serialize_bid(auction.bids[0]) if auction.bids else None,
         "image_urls": auction.image_urls,
         "carte_grise_image_url": auction.carte_grise_image_url,
+        "viewer_bid": serialize_bid(viewer_bid) if viewer_bid else None,
     }
 
 

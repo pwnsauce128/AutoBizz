@@ -18,6 +18,17 @@ function AuctionCard({ auction, onPress, highlight }) {
     (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
     (Array.isArray(auction.images) && auction.images[0]) ||
     null;
+  const rawViewerBidAmount = auction?.viewer_bid?.amount;
+  const numericViewerBidAmount =
+    typeof rawViewerBidAmount === 'number'
+      ? rawViewerBidAmount
+      : typeof rawViewerBidAmount === 'string'
+      ? Number.parseFloat(rawViewerBidAmount)
+      : null;
+  const formattedViewerBid =
+    typeof numericViewerBidAmount === 'number' && !Number.isNaN(numericViewerBidAmount)
+      ? numericViewerBidAmount.toFixed(2).replace(/\.00$/, '')
+      : null;
   return (
     <Pressable
       style={({ pressed }) => [
@@ -43,6 +54,15 @@ function AuctionCard({ auction, onPress, highlight }) {
           {auction.min_price} {auction.currency}
         </Text>
       </View>
+      {formattedViewerBid ? (
+        <View style={styles.cardRow}>
+          <Text style={styles.cardLabel}>My bet:</Text>
+          <Text style={styles.cardValue}>
+            {formattedViewerBid}
+            {auction.currency}
+          </Text>
+        </View>
+      ) : null}
       {auction.end_at ? (
         <Text style={styles.cardMeta}>Ends at {new Date(auction.end_at).toLocaleString()}</Text>
       ) : null}
