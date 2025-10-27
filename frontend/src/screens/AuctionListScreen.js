@@ -268,6 +268,9 @@ export default function AuctionListScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
+      if (isFirstLoadRef.current) {
+        return;
+      }
       loadAuctions(currentTab, { forceReload: true });
     }, [currentTab, loadAuctions]),
   );
