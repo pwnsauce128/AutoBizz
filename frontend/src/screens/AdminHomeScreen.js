@@ -75,7 +75,7 @@ export default function AdminHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f4f8',
+    backgroundColor: 'transparent',
   },
   header: {
     paddingTop: 48,

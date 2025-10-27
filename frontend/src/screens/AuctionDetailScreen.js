@@ -199,7 +199,7 @@ export default function AuctionDetailScreen({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f4f8',
+    backgroundColor: 'transparent',
   },
   content: {
     padding: 16,
