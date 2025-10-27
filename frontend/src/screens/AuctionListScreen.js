@@ -13,11 +13,15 @@ import { listAuctions } from '../api/client';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { useAuth } from '../context/AuthContext';
 
-function AuctionCard({ auction, onPress, highlight }) {
+function AuctionCard({ auction, onPress, highlight, tabKey }) {
   const previewImage =
     (Array.isArray(auction.image_urls) && auction.image_urls[0]) ||
     (Array.isArray(auction.images) && auction.images[0]) ||
     null;
+  const viewerBidAmount = auction?.viewer_bid?.amount;
+  const showViewerBid = tabKey === 'participating' && viewerBidAmount !== undefined && viewerBidAmount !== null;
+  const priceLabel = showViewerBid ? 'Your bid:' : 'Minimum:';
+  const priceAmount = showViewerBid ? viewerBidAmount : auction.min_price;
   return (
     <Pressable
       style={({ pressed }) => [
@@ -38,9 +42,9 @@ function AuctionCard({ auction, onPress, highlight }) {
         </Text>
       ) : null}
       <View style={styles.cardRow}>
-        <Text style={styles.cardLabel}>Minimum:</Text>
-        <Text style={styles.cardValue}>
-          {auction.min_price} {auction.currency}
+        <Text style={styles.cardLabel}>{priceLabel}</Text>
+        <Text style={[styles.cardValue, showViewerBid && styles.cardViewerValue]}>
+          {priceAmount} {auction.currency}
         </Text>
       </View>
       {auction.end_at ? (
@@ -74,7 +78,16 @@ function sanitizeAuctionsForTab(list, tabKey) {
     return [];
   }
   if (tabKey === 'all') {
-    return list.filter((auction) => !isAuctionExpired(auction));
+    return list.filter((auction) => {
+      if (!auction) {
+        return false;
+      }
+      if (isAuctionExpired(auction)) {
+        return false;
+      }
+      const viewerHasBid = Boolean(auction.viewer_bid) || Boolean(auction.viewer_has_bid);
+      return !viewerHasBid;
+    });
   }
   return [...list];
 }
@@ -177,6 +190,7 @@ export default function AuctionListScreen({ navigation }) {
       }
       const cacheKey = tab.key;
       const cachedEntry = cacheRef.current.get(cacheKey);
+      const effectiveForceReload = forceReload || Boolean(accessToken);
       const cachedItems = cachedEntry
         ? sortAuctionsByCreatedAt(sanitizeAuctionsForTab(cachedEntry.items, tab.key))
         : null;
@@ -197,20 +211,24 @@ export default function AuctionListScreen({ navigation }) {
       try {
         setError(null);
         const params = { status: tab.status };
+        if (accessToken) {
+          params.token = accessToken;
+        }
         if (tab.scope) {
           if (!accessToken) {
             throw new Error('Log in to view auctions you have bid on.');
           }
           params.scope = tab.scope;
-          params.token = accessToken;
         }
-        if (!forceReload && cachedEntry?.lastFetchedAt) {
+        if (!effectiveForceReload && cachedEntry?.lastFetchedAt) {
           params.createdAfter = cachedEntry.lastFetchedAt;
         }
         const data = await listAuctions(params);
         const sanitizedIncoming = sanitizeAuctionsForTab(data, tab.key);
         const baseList =
-          forceReload || !cachedItems ? sanitizedIncoming : mergeAuctions(cachedItems, sanitizedIncoming);
+          effectiveForceReload || !cachedItems
+            ? sanitizedIncoming
+            : mergeAuctions(cachedItems, sanitizedIncoming);
         const sorted = sortAuctionsByCreatedAt(baseList);
         const latestCreatedAt = getLatestCreatedAt(sorted);
         const nextLastFetchedAt =
@@ -222,11 +240,11 @@ export default function AuctionListScreen({ navigation }) {
         setAuctions(sorted);
       } catch (err) {
         setError(err.message);
-        if (!cachedItems || forceReload) {
+        if (!cachedItems || effectiveForceReload) {
           setAuctions([]);
         }
       } finally {
-        if (showSpinner || !cachedItems || forceReload) {
+        if (showSpinner || !cachedItems || effectiveForceReload) {
           setLoading(false);
         }
         setRefreshing(false);
@@ -313,6 +331,7 @@ export default function AuctionListScreen({ navigation }) {
               <AuctionCard
                 auction={item}
                 highlight={highlight}
+                tabKey={currentTab.key}
                 onPress={() => navigation.navigate('AuctionDetail', { id: item.id })}
               />
             );
@@ -458,6 +477,9 @@ const styles = StyleSheet.create({
   cardValue: {
     color: '#0f62fe',
     fontWeight: '600',
+  },
+  cardViewerValue: {
+    fontWeight: '700',
   },
   cardMeta: {
     marginTop: 8,
