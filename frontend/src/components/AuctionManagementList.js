@@ -3,6 +3,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,11 +12,15 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import {
   deleteAuction,
   fetchAuction,
   listManageAuctions,
   listMyAuctions,
+  exportManageAuctionsCSV,
   updateAuction,
 } from '../api/client';
 
@@ -46,6 +51,7 @@ function AuctionRow({
   const hasWinningBid = Boolean(bestBid && highestBidder);
   const isExpired = auction.end_at ? new Date(auction.end_at) < new Date() : false;
   const shouldHighlight = isSellerView && isExpired && hasWinningBid;
+  const sellerLabel = auction.seller_username || 'Unknown seller';
 
   const handleCardPress = () => {
     if (onViewPress) {
@@ -80,6 +86,12 @@ function AuctionRow({
           {highestBidderLabel}
         </Text>
       </View>
+      {mode === 'admin' ? (
+        <View style={styles.cardRow}>
+          <Text style={styles.cardLabel}>Seller</Text>
+          <Text style={styles.cardValue}>{sellerLabel}</Text>
+        </View>
+      ) : null}
       <View style={styles.cardRow}>
         <Text style={styles.cardLabel}>Highest bid</Text>
         <Text style={[styles.cardValue, !bestBid && styles.cardValueMuted]}>
@@ -130,6 +142,11 @@ export default function AuctionManagementList({
   const [formCarteGriseImage, setFormCarteGriseImage] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const [dateError, setDateError] = useState(null);
+  const [activePicker, setActivePicker] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const listRef = useRef(null);
   const emptyMessage = EMPTY_LIST_MESSAGE[mode] || EMPTY_LIST_MESSAGE.seller;
@@ -139,19 +156,208 @@ export default function AuctionManagementList({
     [formImages.length],
   );
 
+  const normalizeStartOfDay = useCallback((date) => {
+    const normalized = new Date(date);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
+  }, []);
+
+  const normalizeEndOfDay = useCallback((date) => {
+    const normalized = new Date(date);
+    normalized.setHours(23, 59, 59, 999);
+    return normalized;
+  }, []);
+
+  const formatDateLabel = useCallback((date) => {
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  }, []);
+
+  const formatDateForFile = useCallback((date) => date.toISOString().split('T')[0], []);
+
+  const clearDateFilters = useCallback(() => {
+    setStartDate(null);
+    setEndDate(null);
+  }, []);
+
+  const openDatePicker = useCallback(
+    (field) => {
+      if (mode !== 'admin') {
+        return;
+      }
+      setActivePicker(field);
+    },
+    [mode],
+  );
+
+  const closePicker = useCallback(() => {
+    setActivePicker(null);
+  }, []);
+
+  const handleDateChange = useCallback(
+    (event, selectedDate) => {
+      const eventType = event?.type;
+      if (Platform.OS !== 'ios') {
+        closePicker();
+      }
+      if (eventType === 'dismissed' || !selectedDate) {
+        if (Platform.OS === 'ios') {
+          closePicker();
+        }
+        return;
+      }
+
+      if (activePicker === 'start') {
+        setStartDate(normalizeStartOfDay(selectedDate));
+      } else if (activePicker === 'end') {
+        setEndDate(normalizeEndOfDay(selectedDate));
+      }
+
+      if (Platform.OS === 'ios') {
+        setTimeout(() => {
+          closePicker();
+        }, 0);
+      }
+    },
+    [activePicker, closePicker, normalizeEndOfDay, normalizeStartOfDay],
+  );
+
+  const pickerValue = useMemo(() => {
+    if (!activePicker) {
+      return null;
+    }
+    const fallback = new Date();
+    if (activePicker === 'start') {
+      const base = startDate || endDate || fallback;
+      const candidate = new Date(base);
+      candidate.setHours(12, 0, 0, 0);
+      return candidate;
+    }
+    const base = endDate || startDate || fallback;
+    const candidate = new Date(base);
+    candidate.setHours(12, 0, 0, 0);
+    return candidate;
+  }, [activePicker, startDate, endDate]);
+
+  const pickerMinimumDate = useMemo(() => {
+    if (activePicker !== 'end' || !startDate) {
+      return undefined;
+    }
+    const candidate = new Date(startDate);
+    candidate.setHours(12, 0, 0, 0);
+    return candidate;
+  }, [activePicker, startDate]);
+
+  const pickerMaximumDate = useMemo(() => {
+    if (activePicker !== 'start' || !endDate) {
+      return undefined;
+    }
+    const candidate = new Date(endDate);
+    candidate.setHours(12, 0, 0, 0);
+    return candidate;
+  }, [activePicker, endDate]);
+
+  const handleExport = useCallback(async () => {
+    if (mode !== 'admin') {
+      return;
+    }
+    if (dateError) {
+      Alert.alert('Invalid date range', dateError);
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const params = { status: 'all' };
+      if (startDate) {
+        params.createdFrom = startDate;
+      }
+      if (endDate) {
+        params.createdTo = endDate;
+      }
+
+      const csvPayload = await exportManageAuctionsCSV(params, accessToken);
+      const dateSegments = [];
+      if (startDate) {
+        dateSegments.push(`from-${formatDateForFile(startDate)}`);
+      }
+      if (endDate) {
+        dateSegments.push(`to-${formatDateForFile(endDate)}`);
+      }
+      const fileName = `auctions${dateSegments.length ? `_${dateSegments.join('_')}` : ''}.csv`;
+      const directory = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+      if (!directory) {
+        throw new Error('No writable directory available for export.');
+      }
+      const fileUri = `${directory}${fileName}`;
+      await FileSystem.writeAsStringAsync(fileUri, csvPayload, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const sharingAvailable = await Sharing.isAvailableAsync();
+      if (sharingAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/csv',
+          dialogTitle: 'Export auctions',
+          UTI: 'public.comma-separated-values-text',
+        });
+      } else {
+        Alert.alert('Export complete', `CSV saved to ${fileUri}`);
+      }
+    } catch (err) {
+      Alert.alert('Export failed', err.message);
+    } finally {
+      setExporting(false);
+    }
+  }, [mode, dateError, startDate, endDate, accessToken, formatDateForFile]);
+
   const loadAuctions = useCallback(async () => {
+    if (mode === 'admin' && dateError) {
+      setLoading(false);
+      setError(null);
+      setAuctions([]);
+      return;
+    }
+
     setLoading(true);
     try {
       setError(null);
       const loader = mode === 'admin' ? listManageAuctions : listMyAuctions;
-      const data = await loader({ status: 'all' }, accessToken);
+      const params = { status: 'all' };
+      if (mode === 'admin') {
+        if (startDate) {
+          params.createdFrom = startDate;
+        }
+        if (endDate) {
+          params.createdTo = endDate;
+        }
+      }
+      const data = await loader(params, accessToken);
       setAuctions(data);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [mode, accessToken]);
+  }, [mode, accessToken, startDate, endDate, dateError]);
+
+  useEffect(() => {
+    if (mode !== 'admin') {
+      setStartDate(null);
+      setEndDate(null);
+      setDateError(null);
+      return;
+    }
+
+    if (startDate && endDate && startDate > endDate) {
+      setDateError('Start date cannot be after end date.');
+    } else {
+      setDateError(null);
+    }
+  }, [mode, startDate, endDate]);
 
   useEffect(() => {
     loadAuctions();
@@ -377,6 +583,67 @@ export default function AuctionManagementList({
 
   const keyExtractor = useCallback((item) => item.id, []);
 
+  const filterSection =
+    mode === 'admin' ? (
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterTitle}>Filter auctions by creation date</Text>
+        <View style={styles.filterRow}>
+          <View style={styles.filterField}>
+            <Text style={styles.filterLabel}>From</Text>
+            <Pressable style={styles.dateButton} onPress={() => openDatePicker('start')}>
+              <Text
+                style={[styles.dateButtonLabel, !startDate && styles.dateButtonPlaceholder]}
+              >
+                {startDate ? formatDateLabel(startDate) : 'Select date'}
+              </Text>
+            </Pressable>
+          </View>
+          <View style={[styles.filterField, styles.filterFieldLast]}>
+            <Text style={styles.filterLabel}>To</Text>
+            <Pressable style={styles.dateButton} onPress={() => openDatePicker('end')}>
+              <Text
+                style={[styles.dateButtonLabel, !endDate && styles.dateButtonPlaceholder]}
+              >
+                {endDate ? formatDateLabel(endDate) : 'Select date'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+        <View style={styles.filterActions}>
+          {startDate || endDate ? (
+            <Pressable style={styles.clearButton} onPress={clearDateFilters}>
+              <Text style={styles.clearButtonLabel}>Clear</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            style={[
+              styles.exportButton,
+              (exporting || dateError) && styles.exportButtonDisabled,
+            ]}
+            onPress={handleExport}
+            disabled={exporting || Boolean(dateError)}
+          >
+            <Text style={styles.exportButtonLabel}>
+              {exporting ? 'Exporting…' : 'Export CSV'}
+            </Text>
+          </Pressable>
+        </View>
+        {dateError ? <Text style={styles.dateError}>{dateError}</Text> : null}
+        {activePicker && pickerValue ? (
+          <View style={styles.datePickerWrapper}>
+            <DateTimePicker
+              value={pickerValue}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+              onChange={handleDateChange}
+              minimumDate={pickerMinimumDate}
+              maximumDate={pickerMaximumDate}
+            />
+          </View>
+        ) : null}
+      </View>
+    ) : null;
+
   const editSection = editingId ? (
     <View style={styles.editCard}>
       <Text style={styles.editTitle}>Edit auction</Text>
@@ -463,6 +730,7 @@ export default function AuctionManagementList({
 
   return (
     <View style={[styles.container, style]}>
+      {mode === 'admin' ? filterSection : null}
       {loading ? (
         <Text style={styles.helperText}>Loading auctions…</Text>
       ) : error ? (
@@ -493,6 +761,91 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingBottom: 24,
+  },
+  filterContainer: {
+    paddingHorizontal: 0,
+    paddingBottom: 16,
+    alignSelf: 'stretch',
+  },
+  filterTitle: {
+    color: '#e2e8f0',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  filterField: {
+    flex: 1,
+    marginRight: 12,
+  },
+  filterFieldLast: {
+    marginRight: 0,
+  },
+  filterLabel: {
+    color: '#cbd5f5',
+    fontSize: 12,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.6)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+  },
+  dateButtonLabel: {
+    color: '#e2e8f0',
+    fontWeight: '600',
+  },
+  dateButtonPlaceholder: {
+    color: '#94a3b8',
+    fontWeight: '400',
+  },
+  filterActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  clearButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.6)',
+    marginRight: 12,
+  },
+  clearButtonLabel: {
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  exportButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#0f62fe',
+  },
+  exportButtonLabel: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  exportButtonDisabled: {
+    opacity: 0.6,
+  },
+  dateError: {
+    color: '#fca5a5',
+    marginTop: 4,
+  },
+  datePickerWrapper: {
+    marginTop: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    borderRadius: 12,
+    padding: 8,
   },
   list: {
     flex: 1,

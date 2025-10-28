@@ -1,10 +1,13 @@
 """Integration tests covering core auction workflows."""
 from __future__ import annotations
 
+import csv
+from datetime import datetime, timedelta, timezone
+import uuid
+
 from werkzeug.security import generate_password_hash
 
 from app.extensions import db
-import uuid
 
 from app.models import Auction, Bid, Notification, NotificationType, User, UserRole
 
@@ -385,3 +388,134 @@ def test_seller_can_update_images_with_descriptor_payload(client):
     assert single_image.status_code == 200
     refreshed = single_image.get_json()
     assert refreshed["image_urls"] == ["https://example.com/defender-updated.jpg"]
+
+
+def test_admin_can_filter_manage_auctions_by_created_dates(client):
+    ensure_admin_user(client)
+    admin_token = login_user(client, "admin", ADMIN_PASSWORD)
+
+    create_seller_response = client.post(
+        "/admin/users",
+        headers=auth_headers(admin_token),
+        json={
+            "email": "seller-date-filter@example.com",
+            "username": "seller-date-filter",
+            "role": UserRole.SELLER.value,
+            "password": SELLER_PASSWORD,
+        },
+    )
+    assert create_seller_response.status_code == 201
+
+    seller_token = login_user(client, "seller-date-filter", SELLER_PASSWORD)
+
+    older_resp = client.post(
+        "/auctions",
+        headers=auth_headers(seller_token),
+        json={
+            "title": "Older Auction",
+            "description": "Should be filtered out",
+            "carte_grise_image": "https://example.com/older-carte.jpg",
+        },
+    )
+    assert older_resp.status_code == 201
+
+    recent_resp = client.post(
+        "/auctions",
+        headers=auth_headers(seller_token),
+        json={
+            "title": "Recent Auction",
+            "description": "Should remain",
+            "carte_grise_image": "https://example.com/recent-carte.jpg",
+        },
+    )
+    assert recent_resp.status_code == 201
+
+    app = client.application
+    with app.app_context():
+        older = Auction.query.filter_by(title="Older Auction").first()
+        recent = Auction.query.filter_by(title="Recent Auction").first()
+        assert older and recent
+        older.created_at = datetime.now(timezone.utc) - timedelta(days=30)
+        recent.created_at = datetime.now(timezone.utc) - timedelta(days=2)
+        db.session.commit()
+
+    created_from = (datetime.now(timezone.utc) - timedelta(days=5)).date().isoformat()
+    response = client.get(
+        f"/auctions/manage?created_from={created_from}",
+        headers=auth_headers(admin_token),
+    )
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert len(payload) == 1
+    assert payload[0]["title"] == "Recent Auction"
+
+    invalid = client.get(
+        "/auctions/manage?created_from=2024-05-10&created_to=2024-05-01",
+        headers=auth_headers(admin_token),
+    )
+    assert invalid.status_code == 400
+    message = invalid.get_json()["message"].lower()
+    assert "created_from" in message
+
+
+def test_admin_can_export_auctions_csv(client):
+    ensure_admin_user(client)
+    admin_token = login_user(client, "admin", ADMIN_PASSWORD)
+
+    create_seller_response = client.post(
+        "/admin/users",
+        headers=auth_headers(admin_token),
+        json={
+            "email": "seller-export@example.com",
+            "username": "seller-export",
+            "role": UserRole.SELLER.value,
+            "password": SELLER_PASSWORD,
+        },
+    )
+    assert create_seller_response.status_code == 201
+
+    seller_token = login_user(client, "seller-export", SELLER_PASSWORD)
+
+    auction_resp = client.post(
+        "/auctions",
+        headers=auth_headers(seller_token),
+        json={
+            "title": "Export Auction",
+            "description": "For CSV",
+            "carte_grise_image": "https://example.com/export-carte.jpg",
+        },
+    )
+    assert auction_resp.status_code == 201
+    auction_id = auction_resp.get_json()["id"]
+
+    register_buyer(client, "buyer-export", "buyer-export@example.com", BUYER_PASSWORD)
+    buyer_token = login_user(client, "buyer-export", BUYER_PASSWORD)
+
+    bid_response = client.post(
+        f"/auctions/{auction_id}/bids",
+        headers=auth_headers(buyer_token),
+        json={"amount": 12345},
+    )
+    assert bid_response.status_code == 201
+
+    app = client.application
+    with app.app_context():
+        auction = Auction.query.filter_by(id=uuid.UUID(auction_id)).first()
+        assert auction is not None
+        auction.created_at = datetime(2024, 1, 15, tzinfo=timezone.utc)
+        db.session.commit()
+
+    export_resp = client.get(
+        "/auctions/manage/export?created_from=2024-01-01&created_to=2024-12-31",
+        headers=auth_headers(admin_token),
+    )
+    assert export_resp.status_code == 200
+    assert export_resp.headers["Content-Type"].startswith("text/csv")
+
+    csv_rows = list(csv.reader(export_resp.data.decode().splitlines()))
+    assert csv_rows[0] == ["auction name", "seller", "buyer", "price", "date"]
+    assert csv_rows[1][0] == "Export Auction"
+    assert csv_rows[1][1] == "seller-export"
+    assert csv_rows[1][2] == "buyer-export"
+    assert csv_rows[1][3].startswith("12345.00")
+    assert csv_rows[1][4].startswith("2024-01-15")
