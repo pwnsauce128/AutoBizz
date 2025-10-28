@@ -1,11 +1,13 @@
 """Auction CRUD endpoints."""
 from __future__ import annotations
 
+import csv
+import io
 from datetime import datetime, timezone
 from http import HTTPStatus
 import uuid
 
-from flask import Blueprint, abort, jsonify, request
+from flask import Blueprint, abort, jsonify, make_response, request
 from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 from sqlalchemy.orm import joinedload
 
@@ -199,6 +201,34 @@ def _normalize_currency(value: object) -> str:
     return normalized
 
 
+def _parse_date_param(name: str, *, inclusive_end: bool = False) -> datetime | None:
+    raw = request.args.get(name)
+    if raw is None:
+        return None
+
+    raw = raw.strip()
+    if not raw:
+        abort(HTTPStatus.BAD_REQUEST, description=f"{name} cannot be empty")
+
+    normalized = raw.replace("Z", "+00:00")
+
+    try:
+        value = datetime.fromisoformat(normalized)
+    except ValueError:
+        abort(HTTPStatus.BAD_REQUEST, description=f"Invalid {name} timestamp")
+
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+
+    if "T" not in normalized:
+        if inclusive_end:
+            value = value.replace(hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            value = value.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    return value
+
+
 @auctions_bp.post("")
 @jwt_required()
 @role_required(UserRole.SELLER, UserRole.ADMIN)
@@ -260,7 +290,10 @@ def list_my_auctions():
 def list_all_auctions():
     status_param = request.args.get("status", "all")
 
-    query = Auction.query.options(joinedload(Auction.bids).joinedload(Bid.buyer))
+    query = Auction.query.options(
+        joinedload(Auction.bids).joinedload(Bid.buyer),
+        joinedload(Auction.seller),
+    )
 
     if status_param != "all":
         try:
@@ -269,8 +302,78 @@ def list_all_auctions():
             abort(HTTPStatus.BAD_REQUEST, description="Invalid status filter")
         query = query.filter_by(status=status)
 
+    created_from = _parse_date_param("created_from")
+    created_to = _parse_date_param("created_to", inclusive_end=True)
+
+    if created_from and created_to and created_from > created_to:
+        abort(HTTPStatus.BAD_REQUEST, description="created_from cannot be after created_to")
+
+    if created_from:
+        query = query.filter(Auction.created_at >= created_from)
+    if created_to:
+        query = query.filter(Auction.created_at <= created_to)
+
     auctions = query.order_by(Auction.created_at.desc()).all()
     return jsonify([serialize_auction_preview(auction) for auction in auctions])
+
+
+@auctions_bp.get("/manage/export")
+@jwt_required()
+@role_required(UserRole.ADMIN)
+def export_auctions_csv():
+    status_param = request.args.get("status", "all")
+
+    query = Auction.query.options(
+        joinedload(Auction.bids).joinedload(Bid.buyer),
+        joinedload(Auction.seller),
+    )
+
+    if status_param != "all":
+        try:
+            status = AuctionStatus(status_param)
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Invalid status filter")
+        query = query.filter_by(status=status)
+
+    created_from = _parse_date_param("created_from")
+    created_to = _parse_date_param("created_to", inclusive_end=True)
+
+    if created_from and created_to and created_from > created_to:
+        abort(HTTPStatus.BAD_REQUEST, description="created_from cannot be after created_to")
+
+    if created_from:
+        query = query.filter(Auction.created_at >= created_from)
+    if created_to:
+        query = query.filter(Auction.created_at <= created_to)
+
+    auctions = query.order_by(Auction.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["auction name", "seller", "buyer", "price", "date"])
+
+    for auction in auctions:
+        best_bid = auction.bids[0] if auction.bids else None
+        buyer_username = best_bid.buyer.username if best_bid and best_bid.buyer else ""
+        price = f"{float(best_bid.amount):.2f} {auction.currency}" if best_bid else ""
+        created_at = auction.created_at.isoformat() if auction.created_at else ""
+        seller_username = auction.seller.username if auction.seller else ""
+        writer.writerow([auction.title, seller_username, buyer_username, price, created_at])
+
+    csv_data = output.getvalue()
+    output.close()
+
+    filename_parts: list[str] = ["auctions"]
+    if created_from:
+        filename_parts.append(f"from-{created_from.date().isoformat()}")
+    if created_to:
+        filename_parts.append(f"to-{created_to.date().isoformat()}")
+    filename = "-".join(filename_parts) + ".csv"
+
+    response = make_response(csv_data)
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    return response
 
 
 @auctions_bp.get("/<uuid:auction_id>")
@@ -387,6 +490,7 @@ def serialize_auction_preview(
         "best_bid": serialize_bid(auction.bids[0]) if auction.bids else None,
         "image_urls": auction.image_urls,
         "carte_grise_image_url": auction.carte_grise_image_url,
+        "seller_username": auction.seller.username if auction.seller else None,
         "user_bid": user_bid,
     }
 
