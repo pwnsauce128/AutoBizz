@@ -114,14 +114,67 @@ export async function listMyAuctions({ status = 'all' } = {}, token) {
   return request(`/auctions/mine${suffix}`, { token });
 }
 
-export async function listManageAuctions({ status = 'all' } = {}, token) {
+export async function listManageAuctions({ status = 'all', createdFrom, createdTo } = {}, token) {
   const params = new URLSearchParams();
   if (status) {
     params.append('status', status);
   }
+  if (createdFrom) {
+    const value =
+      createdFrom instanceof Date ? createdFrom.toISOString() : new Date(createdFrom).toISOString();
+    params.append('created_from', value);
+  }
+  if (createdTo) {
+    const value = createdTo instanceof Date ? createdTo.toISOString() : new Date(createdTo).toISOString();
+    params.append('created_to', value);
+  }
   const query = params.toString();
   const suffix = query ? `?${query}` : '';
   return request(`/auctions/manage${suffix}`, { token });
+}
+
+export async function exportManageAuctionsCSV(
+  { status = 'all', createdFrom, createdTo } = {},
+  token,
+) {
+  const params = new URLSearchParams();
+  if (status) {
+    params.append('status', status);
+  }
+  if (createdFrom) {
+    const value =
+      createdFrom instanceof Date ? createdFrom.toISOString() : new Date(createdFrom).toISOString();
+    params.append('created_from', value);
+  }
+  if (createdTo) {
+    const value = createdTo instanceof Date ? createdTo.toISOString() : new Date(createdTo).toISOString();
+    params.append('created_to', value);
+  }
+  const query = params.toString();
+  const suffix = query ? `?${query}` : '';
+  const headers = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await fetch(`${BASE_URL}/auctions/manage/export${suffix}`, {
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let message = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      message = parsed.message || parsed.error || errorText;
+    } catch (error) {
+      // ignore JSON parse failures for CSV responses
+    }
+    const err = new Error(message || response.statusText);
+    err.status = response.status;
+    throw err;
+  }
+
+  return response.text();
 }
 
 export async function updateAuction(auctionId, data, token) {
