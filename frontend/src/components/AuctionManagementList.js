@@ -289,13 +289,43 @@ export default function AuctionManagementList({
       }
       const fileName = `auctions${dateSegments.length ? `_${dateSegments.join('_')}` : ''}.csv`;
       const saveResult = await (async () => {
-        const directory = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
-        if (directory) {
-          const uri = `${directory}${fileName}`;
-          await FileSystem.writeAsStringAsync(uri, csvPayload, {
-            encoding: FileSystem.EncodingType.UTF8,
-          });
-          return { fileUri: uri, supportsSharing: true };
+        const ensureTrailingSlash = (value) => (value.endsWith('/') ? value : `${value}/`);
+        const candidateDirectories = [
+          FileSystem.documentDirectory,
+          FileSystem.cacheDirectory,
+          FileSystem.temporaryDirectory,
+        ].filter((dir) => typeof dir === 'string' && dir.length > 0);
+
+        for (const baseDirectory of candidateDirectories) {
+          try {
+            const directoryInfo = await FileSystem.getInfoAsync(baseDirectory);
+            if (!directoryInfo.exists) {
+              await FileSystem.makeDirectoryAsync(baseDirectory, { intermediates: true });
+            }
+
+            const normalizedBase = ensureTrailingSlash(baseDirectory);
+            const uri = `${normalizedBase}${fileName}`;
+            await FileSystem.writeAsStringAsync(uri, csvPayload, {
+              encoding: FileSystem.EncodingType.UTF8,
+            });
+            return { fileUri: uri, supportsSharing: true };
+          } catch (writeErr) {
+            console.warn('Failed to write CSV export', baseDirectory, writeErr);
+          }
+        }
+
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          const blob = new Blob([csvPayload], { type: 'text/csv;charset=utf-8;' });
+          const downloadUrl = window.URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = downloadUrl;
+          anchor.download = fileName;
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          window.URL.revokeObjectURL(downloadUrl);
+
+          return { fileUri: downloadUrl, supportsSharing: false };
         }
 
         if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
