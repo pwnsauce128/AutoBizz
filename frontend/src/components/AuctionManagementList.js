@@ -288,24 +288,64 @@ export default function AuctionManagementList({
         dateSegments.push(`to-${formatDateForFile(endDate)}`);
       }
       const fileName = `auctions${dateSegments.length ? `_${dateSegments.join('_')}` : ''}.csv`;
-      const directory = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
-      if (!directory) {
-        throw new Error('No writable directory available for export.');
-      }
-      const fileUri = `${directory}${fileName}`;
-      await FileSystem.writeAsStringAsync(fileUri, csvPayload, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      const saveResult = await (async () => {
+        const directory = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
+        if (directory) {
+          const uri = `${directory}${fileName}`;
+          await FileSystem.writeAsStringAsync(uri, csvPayload, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+          return { fileUri: uri, supportsSharing: true };
+        }
 
-      const sharingAvailable = await Sharing.isAvailableAsync();
+        if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+          if (!permissions.granted) {
+            throw new Error('Storage permission not granted for export.');
+          }
+
+          const resolveFileUri = async (name) => {
+            try {
+              return await FileSystem.StorageAccessFramework.createFileAsync(
+                permissions.directoryUri,
+                name,
+                'text/csv',
+              );
+            } catch (createErr) {
+              return null;
+            }
+          };
+
+          let writableUri = await resolveFileUri(fileName);
+          if (!writableUri) {
+            writableUri = await resolveFileUri(
+              `auctions_${Date.now()}.csv`,
+            );
+          }
+
+          if (!writableUri) {
+            throw new Error('Unable to create export file in selected directory.');
+          }
+
+          await FileSystem.StorageAccessFramework.writeAsStringAsync(writableUri, csvPayload, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+
+          return { fileUri: writableUri, supportsSharing: false };
+        }
+
+        throw new Error('No writable directory available for export.');
+      })();
+
+      const sharingAvailable = saveResult.supportsSharing && (await Sharing.isAvailableAsync());
       if (sharingAvailable) {
-        await Sharing.shareAsync(fileUri, {
+        await Sharing.shareAsync(saveResult.fileUri, {
           mimeType: 'text/csv',
           dialogTitle: 'Export auctions',
           UTI: 'public.comma-separated-values-text',
         });
       } else {
-        Alert.alert('Export complete', `CSV saved to ${fileUri}`);
+        Alert.alert('Export complete', `CSV saved to ${saveResult.fileUri}`);
       }
     } catch (err) {
       Alert.alert('Export failed', err.message);
