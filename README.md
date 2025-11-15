@@ -46,9 +46,25 @@ $env:DATABASE_URL = "sqlite:///autobet.db"
 python backend/run.py
 ```
 
-### Bootstrapping the first admin
+### Production setup script
 
-Because the `/auth/register` endpoint always provisions buyers, you must insert the initial administrator directly in the database before you can use any `/admin/*` APIs. After configuring the environment variables above (so the script talks to the same database as the server), run the snippet below to create an `admin` user with a password you control:
+Run the interactive helper to prepare a production deployment in one pass:
+
+```bash
+python backend/setup_production.py
+```
+
+The script can:
+
+- Install the backend dependencies with `pip`.
+- Collect your production `DATABASE_URL`, generate or accept a JWT secret, and capture optional CORS origins.
+- Write the collected values to an environment file (for example `backend/.env.production`).
+- Execute the Flask application factory so your target database has all required tables.
+- Seed (or update) the first administrator account, including password rotation if an admin already exists.
+
+### Bootstrapping the first admin (manual alternative)
+
+If you prefer to provision the administrator manually, configure the environment variables above so they point at the production database and then run:
 
 ```bash
 python - <<'PY'
@@ -61,7 +77,7 @@ ADMIN_USERNAME = "admin"
 ADMIN_EMAIL = "admin@example.com"
 ADMIN_PASSWORD = "ChangeMe123!"  # update this before running
 
-app = create_app("development")
+app = create_app()
 with app.app_context():
     existing = User.query.filter_by(username=ADMIN_USERNAME).first()
     if existing:
