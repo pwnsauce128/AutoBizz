@@ -45,6 +45,11 @@ class BaseConfig:
     JWT_ACCESS_TOKEN_EXPIRES: timedelta = timedelta(minutes=15)
     JWT_REFRESH_TOKEN_EXPIRES: timedelta = timedelta(days=7)
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "*")
+    ENFORCE_HTTPS: bool = os.getenv("ENFORCE_HTTPS", "true").lower() == "true"
+    PREFERRED_URL_SCHEME: str = "https"
+    SESSION_COOKIE_SECURE: bool = True
+    REMEMBER_COOKIE_SECURE: bool = True
+    SESSION_COOKIE_SAMESITE: str = "Lax"
 
 
 @dataclass
@@ -55,6 +60,7 @@ class TestingConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI: str = "sqlite:///:memory:"
     JWT_SECRET_KEY: str = "test-secret"
     PUSH_DELIVERY_USE_THREAD: bool = False
+    ENFORCE_HTTPS: bool = False
     SQLALCHEMY_ENGINE_OPTIONS: ClassVar[dict[str, object]] = {
         "poolclass": StaticPool,
         "connect_args": {"check_same_thread": False},
@@ -67,6 +73,7 @@ class DevelopmentConfig(BaseConfig):
 
     DEBUG: bool = True
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret")
+    ENFORCE_HTTPS: bool = False
 
 
 CONFIGS: dict[str, type[BaseConfig]] = {
