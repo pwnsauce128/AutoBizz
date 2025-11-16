@@ -20,6 +20,14 @@ pip install -r backend/requirements.txt
 python backend/run.py  # launches a debug server on http://127.0.0.1:5000
 ```
 
+To run the app with Gunicorn (recommended for production), ensure the required environment variables are set and then execute:
+
+```bash
+export JWT_SECRET_KEY="change-me"
+export DATABASE_URL="sqlite:///autobet.db"
+gunicorn --chdir backend "app:create_app()" --bind 0.0.0.0:8000 --workers 4
+```
+
 Run the automated tests:
 
 ```bash
