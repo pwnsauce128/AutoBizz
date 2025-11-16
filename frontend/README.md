@@ -27,16 +27,13 @@ This directory contains a lightweight Expo/React Native client for interacting w
    npx expo install react-native-web react-dom @expo/metro-runtime
    ```
 
-2. Optionally configure the backend URL exposed to the Expo client by creating an `.env` file in this folder (make sure to restart `npm start` after changing it):
+2. Optionally configure the backend URL exposed to the Expo client by creating an `.env` file in this folder (make sure to restart `npm start` after changing it). The app reads `EXPO_PUBLIC_API_URL` directly from `process.env`—no additional Expo config is needed:
 
    ```bash
    echo "EXPO_PUBLIC_API_URL=http://127.0.0.1:5000" > .env
    ```
 
    When omitted, the app falls back to `http://127.0.0.1:5000`.
-
-   The Expo config (`app.config.js`) loads this value via `dotenv` and exposes it through `Constants.expoConfig.extra.apiUrl`,
-   so it is available for local `npm start` sessions and cloud builds alike.
 
 3. Start the backend if it is not already running:
 
