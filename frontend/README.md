@@ -27,13 +27,22 @@ This directory contains a lightweight Expo/React Native client for interacting w
    npx expo install react-native-web react-dom @expo/metro-runtime
    ```
 
-2. Optionally configure the backend URL exposed to the Expo client by creating an `.env` file in this folder (make sure to restart `npm start` after changing it). The app reads `EXPO_PUBLIC_API_URL` directly from `process.env`—no additional Expo config is needed:
+2. Optionally configure the backend URL exposed to the Expo client by creating an `.env` file in this folder (make sure to restart `npm start` after changing it). `app.config.js` loads this file via `dotenv` and injects `EXPO_PUBLIC_API_URL` into Expo config so the value is available even when `process.env` is empty inside Metro. If no `.env` is found, the Expo config still exposes `extra.apiUrl` with the default `http://127.0.0.1:5000`:
 
    ```bash
    echo "EXPO_PUBLIC_API_URL=http://127.0.0.1:5000" > .env
    ```
 
    When omitted, the app falls back to `http://127.0.0.1:5000`.
+
+   To confirm Metro can see your `.env`, run `npx expo config --json | jq '.extra.apiUrl'` from the `frontend/` folder and verify the output matches your configured URL. If you see the fallback `"http://127.0.0.1:5000"`, Metro did not pick up your `.env`.
+
+   **If `EXPO_PUBLIC_API_URL` shows up as `undefined`, check the following:**
+
+   - Restart Metro with cache cleared (`npx expo start -c`). Environment variables are only read when the bundler starts.
+   - Ensure the `.env` file sits directly in the `frontend/` folder (next to `package.json`) and the key is spelled exactly `EXPO_PUBLIC_API_URL` without quotes or spaces.
+   - Run `npm run start` from the `frontend/` directory so Expo can see the `.env` file.
+   - Confirm the value is also present in Expo config (`Constants.expoConfig.extra.apiUrl`), which is logged on app startup.
 
 3. Start the backend if it is not already running:
 
@@ -54,7 +63,8 @@ This directory contains a lightweight Expo/React Native client for interacting w
 ```
 frontend/
 ├── App.js                 # Navigation + root provider wiring
-├── app.json               # Expo configuration
+├── app.json               # Legacy static Expo configuration (most values live in app.config.js)
+├── app.config.js          # Expo configuration with dotenv support for EXPO_PUBLIC_API_URL
 ├── package.json           # Dependencies and scripts
 ├── assets/                # Placeholder icons for Expo builds
 └── src/
