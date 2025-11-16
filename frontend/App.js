@@ -115,6 +115,10 @@ export default function App() {
     },
   };
 
+  useEffect(() => {
+    console.log('EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
+  }, []);
+
   return (
     <ImageBackground source={require('./src/bg.jpeg')} style={styles.background} resizeMode="cover">
       <AuthProvider>
