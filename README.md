@@ -62,6 +62,10 @@ The script can:
 - Execute the Flask application factory so your target database has all required tables.
 - Seed (or update) the first administrator account, including password rotation if an admin already exists.
 
+### Enabling HTTPS
+
+The backend enforces HTTPS when `ENFORCE_HTTPS=true` (default). Terminate TLS at your reverse proxy or load balancer (for example Nginx or HAProxy) and point it at the Flask/Gunicorn process over plain HTTP. Place the certificate and private key where your proxy expects them—on most Linux distributions that is `/etc/letsencrypt/live/<your-domain>/fullchain.pem` and `/etc/letsencrypt/live/<your-domain>/privkey.pem` when using Let’s Encrypt. If you provide your own certificate, store it alongside your proxy’s TLS assets (for example `/etc/ssl/<your-domain>/`), reference the paths in the proxy config, and ensure the proxy sends `X-Forwarded-Proto: https` so the app can recognize secure requests.
+
 ### Bootstrapping the first admin (manual alternative)
 
 If you prefer to provision the administrator manually, configure the environment variables above so they point at the production database and then run:

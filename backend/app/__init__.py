@@ -1,10 +1,11 @@
 """Application factory for the AutoBet backend."""
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, redirect, request
 from flask_cors import CORS
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import models
 from .config import get_config
@@ -29,6 +30,7 @@ def create_app(config_name: str | None = None) -> Flask:
     app = Flask(__name__)
     config_class = get_config(config_name)
     app.config.from_object(config_class)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)  # type: ignore[assignment]
     CORS(app, resources={r"/*": {"origins": app.config.get("CORS_ORIGINS", "*")}})
 
     if not app.config.get("JWT_SECRET_KEY"):
@@ -67,6 +69,19 @@ def create_app(config_name: str | None = None) -> Flask:
             }
         )
         return response, exc.code
+
+    @app.before_request
+    def _enforce_https_redirect():
+        if not app.config.get("ENFORCE_HTTPS", False):
+            return None
+
+        proto_header = request.headers.get("X-Forwarded-Proto", request.scheme)
+        proto = proto_header.split(",")[0].strip().lower()
+        if proto == "https":
+            return None
+
+        https_url = request.url.replace("http://", "https://", 1)
+        return redirect(https_url, code=307)
 
     return app
 
