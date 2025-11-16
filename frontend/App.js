@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import Constants from 'expo-constants';
 import { ImageBackground, StyleSheet } from 'react-native';
 import AuctionDetailScreen from './src/screens/AuctionDetailScreen';
 import AuctionListScreen from './src/screens/AuctionListScreen';
@@ -11,7 +12,7 @@ import AdminHomeScreen from './src/screens/AdminHomeScreen';
 import SellerHomeScreen from './src/screens/SellerHomeScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { navigationRef, resetToLogin } from './src/navigation/navigationRef';
-import { registerDevice } from './src/api/client';
+import { BASE_URL, registerDevice } from './src/api/client';
 import { registerForPushNotificationsAsync } from './src/utils/push';
 
 const Stack = createNativeStackNavigator();
@@ -114,6 +115,12 @@ export default function App() {
       background: 'transparent',
     },
   };
+
+  useEffect(() => {
+    console.log('EXPO_PUBLIC_API_URL (process):', process.env.EXPO_PUBLIC_API_URL);
+    console.log('EXPO config extra apiUrl:', Constants.expoConfig?.extra?.apiUrl);
+    console.log('Resolved BASE_URL:', BASE_URL);
+  }, []);
 
   return (
     <ImageBackground source={require('./src/bg.jpeg')} style={styles.background} resizeMode="cover">
