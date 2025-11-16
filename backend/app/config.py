@@ -4,9 +4,33 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 import os
+from pathlib import Path
 
+from dotenv import load_dotenv
 from sqlalchemy.pool import StaticPool
 from typing import ClassVar
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+
+def _load_env_file() -> None:
+    """Load the first available backend environment file.
+
+    The production setup helper writes configuration to ``backend/.env.production``
+    by default. Loading the file here ensures that scripts, local shells, and the
+    WSGI entrypoint all share the same settings without requiring callers to
+    manually export the variables.
+    """
+
+    for env_name in (".env.production", ".env"):
+        env_path = BACKEND_DIR / env_name
+        if env_path.exists():
+            load_dotenv(env_path)
+            break
+
+
+_load_env_file()
 
 
 @dataclass
