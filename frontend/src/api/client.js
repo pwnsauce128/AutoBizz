@@ -1,4 +1,7 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:5000';
+import Constants from 'expo-constants';
+
+const BASE_URL =
+  Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:5000';
 
 async function request(path, { method = 'GET', body, token, signal } = {}) {
   const headers = { 'Content-Type': 'application/json' };
