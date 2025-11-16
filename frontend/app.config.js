@@ -1,6 +1,7 @@
-import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 const envCandidates = [
   path.resolve(__dirname, '.env'),
@@ -9,27 +10,15 @@ const envCandidates = [
 ];
 
 let loadedEnvPath = null;
-let loadedEnvVars = null;
-
 for (const envPath of envCandidates) {
-  if (!fs.existsSync(envPath)) continue;
-
-  const contents = fs.readFileSync(envPath);
-  loadedEnvVars = dotenv.parse(contents);
-  for (const [key, value] of Object.entries(loadedEnvVars)) {
-    if (process.env[key] === undefined) {
-      process.env[key] = value;
-    }
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    loadedEnvPath = envPath;
+    break;
   }
-  loadedEnvPath = envPath;
-  break;
 }
-
 if (loadedEnvPath) {
-  const loggedValue = loadedEnvVars?.EXPO_PUBLIC_API_URL ?? 'undefined';
-  console.log(
-    `Expo config: loaded environment from ${loadedEnvPath} (EXPO_PUBLIC_API_URL=${loggedValue})`,
-  );
+  console.log(`Expo config: loaded environment from ${loadedEnvPath}`);
 } else {
   console.log('Expo config: no .env file found; relying on process env');
 }
