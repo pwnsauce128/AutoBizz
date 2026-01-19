@@ -61,6 +61,18 @@ export async function registerDevice(expoPushToken, token) {
   });
 }
 
+export async function fetchWebPushPublicKey() {
+  return request('/web-push/public-key');
+}
+
+export async function registerWebPushSubscription(subscription, token) {
+  return request('/web-push/subscriptions', {
+    method: 'POST',
+    token,
+    body: subscription,
+  });
+}
+
 export async function listAuctions(
   {
     status = 'active',
@@ -232,4 +244,6 @@ export default {
   createUser,
   updateUser,
   registerDevice,
+  fetchWebPushPublicKey,
+  registerWebPushSubscription,
 };

@@ -1,17 +1,20 @@
-"""Utilities for delivering Expo push notifications."""
+"""Utilities for delivering push notifications."""
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import uuid
 from typing import Iterable, Sequence
 
 import requests
+from flask import current_app
+from pywebpush import WebPushException, webpush
 from sqlalchemy import event
 from sqlalchemy.orm import object_session
 
 from .extensions import db
-from .models import Auction, Device, Notification, NotificationType
+from .models import Auction, Device, Notification, NotificationType, WebPushSubscription
 
 
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
@@ -73,7 +76,7 @@ def _dispatch_delivery(app, notification_data) -> None:
 
 
 def deliver_notification(notification) -> None:
-    """Deliver the given notification via Expo push."""
+    """Deliver the given notification via Expo and Web Push."""
 
     if isinstance(notification, (str, uuid.UUID)):
         db_notification = db.session.get(Notification, notification)
@@ -91,34 +94,44 @@ def deliver_notification(notification) -> None:
         logger.debug("Notification %s missing user_id; skipping", data.get("id"))
         return
 
+    title, body, payload = _render_message(data)
+
+    delivered = False
     tokens = data.get("tokens")
     if tokens is None:
         devices = Device.query.filter_by(user_id=user_id).all()
         tokens = [device.expo_push_token for device in devices]
-    if not tokens:
+    if tokens:
+        messages = [
+            {
+                "to": token,
+                "title": title,
+                "body": body,
+                "sound": "default",
+                "data": payload,
+            }
+            for token in tokens
+        ]
+        try:
+            _send_to_expo(messages)
+            delivered = True
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Failed to deliver Expo notification %s: %s", data.get("id"), exc)
+
+    web_subscriptions = WebPushSubscription.query.filter_by(user_id=user_id).all()
+    if web_subscriptions:
+        try:
+            _send_web_push(web_subscriptions, title, body, payload)
+            delivered = True
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Failed to deliver Web Push notification %s: %s", data.get("id"), exc)
+
+    if not delivered:
         logger.debug(
-            "No registered Expo push tokens for user %s; skipping notification %s",
+            "No registered push devices for user %s; skipping notification %s",
             user_id,
             data.get("id"),
         )
-        return
-
-    title, body, payload = _render_message(data)
-    messages = [
-        {
-            "to": token,
-            "title": title,
-            "body": body,
-            "sound": "default",
-            "data": payload,
-        }
-        for token in tokens
-    ]
-
-    try:
-        _send_to_expo(messages)
-    except Exception as exc:  # pragma: no cover - defensive logging
-        logger.exception("Failed to deliver notification %s: %s", data.get("id"), exc)
 
 
 def _extract_notification_data(notification: Notification) -> dict:
@@ -226,3 +239,57 @@ def _send_to_expo(messages: Sequence[dict]) -> None:
         for item in data:
             if isinstance(item, dict) and item.get("status") == "error":
                 logger.error("Expo push ticket error: %s", item)
+
+
+def _send_web_push(
+    subscriptions: Sequence[WebPushSubscription],
+    title: str,
+    body: str,
+    payload: dict,
+) -> None:
+    if not subscriptions:
+        return
+
+    vapid_private_key = current_app.config.get("WEB_PUSH_VAPID_PRIVATE_KEY")
+    vapid_subject = current_app.config.get("WEB_PUSH_VAPID_SUBJECT")
+    if not vapid_private_key or not vapid_subject:
+        logger.debug("Web push VAPID keys not configured; skipping web push delivery")
+        return
+
+    message = json.dumps(
+        {
+            "title": title,
+            "body": body,
+            "data": payload,
+        }
+    )
+    vapid_claims = {"sub": vapid_subject}
+    stale_subscriptions = []
+
+    for subscription in subscriptions:
+        subscription_info = {
+            "endpoint": subscription.endpoint,
+            "keys": {
+                "p256dh": subscription.p256dh,
+                "auth": subscription.auth,
+            },
+        }
+        try:
+            webpush(
+                subscription_info,
+                message,
+                vapid_private_key=vapid_private_key,
+                vapid_claims=vapid_claims,
+            )
+        except WebPushException as exc:
+            response = getattr(exc, "response", None)
+            status_code = response.status_code if response is not None else None
+            if status_code in {404, 410}:
+                stale_subscriptions.append(subscription)
+            else:
+                logger.error("Web push error for subscription %s: %s", subscription.id, exc)
+
+    if stale_subscriptions:
+        for subscription in stale_subscriptions:
+            db.session.delete(subscription)
+        db.session.commit()

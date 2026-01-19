@@ -50,6 +50,9 @@ class BaseConfig:
     SESSION_COOKIE_SECURE: bool = True
     REMEMBER_COOKIE_SECURE: bool = True
     SESSION_COOKIE_SAMESITE: str = "Lax"
+    WEB_PUSH_VAPID_PUBLIC_KEY: str | None = os.getenv("WEB_PUSH_VAPID_PUBLIC_KEY")
+    WEB_PUSH_VAPID_PRIVATE_KEY: str | None = os.getenv("WEB_PUSH_VAPID_PRIVATE_KEY")
+    WEB_PUSH_VAPID_SUBJECT: str | None = os.getenv("WEB_PUSH_VAPID_SUBJECT")
 
 
 @dataclass

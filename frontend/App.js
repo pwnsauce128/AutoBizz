@@ -12,7 +12,7 @@ import AdminHomeScreen from './src/screens/AdminHomeScreen';
 import SellerHomeScreen from './src/screens/SellerHomeScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { navigationRef, resetToLogin } from './src/navigation/navigationRef';
-import { BASE_URL, registerDevice } from './src/api/client';
+import { BASE_URL, registerDevice, registerWebPushSubscription } from './src/api/client';
 import { registerForPushNotificationsAsync } from './src/utils/push';
 
 const Stack = createNativeStackNavigator();
@@ -81,16 +81,27 @@ function PushRegistrationManager() {
 
     async function registerAsync() {
       try {
-        const expoPushToken = await registerForPushNotificationsAsync();
-        if (!expoPushToken || isCancelled) {
+        const pushInfo = await registerForPushNotificationsAsync();
+        if (!pushInfo || isCancelled) {
           return;
         }
-        if (lastRegisteredToken.current === expoPushToken) {
-          return;
-        }
-        await registerDevice(expoPushToken, accessToken);
-        if (!isCancelled) {
-          lastRegisteredToken.current = expoPushToken;
+        if (pushInfo.type === 'expo') {
+          if (lastRegisteredToken.current === pushInfo.token) {
+            return;
+          }
+          await registerDevice(pushInfo.token, accessToken);
+          if (!isCancelled) {
+            lastRegisteredToken.current = pushInfo.token;
+          }
+        } else if (pushInfo.type === 'web') {
+          const endpoint = pushInfo.subscription?.endpoint;
+          if (endpoint && lastRegisteredToken.current === endpoint) {
+            return;
+          }
+          await registerWebPushSubscription(pushInfo.subscription, accessToken);
+          if (!isCancelled) {
+            lastRegisteredToken.current = endpoint ?? null;
+          }
         }
       } catch (error) {
         console.warn('Failed to register push notifications', error);

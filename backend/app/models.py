@@ -161,3 +161,15 @@ class Device(BaseModel):
     user_id: Mapped[uuid.UUID] = mapped_column(db.Uuid, db.ForeignKey("users.id"))
     user: Mapped[User] = relationship()
     expo_push_token: Mapped[str] = mapped_column(db.String(255), unique=True, nullable=False)
+
+
+class WebPushSubscription(BaseModel):
+    """Web Push subscription registry."""
+
+    __tablename__ = "web_push_subscriptions"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(db.Uuid, db.ForeignKey("users.id"))
+    user: Mapped[User] = relationship()
+    endpoint: Mapped[str] = mapped_column(db.Text, unique=True, nullable=False)
+    p256dh: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    auth: Mapped[str] = mapped_column(db.String(255), nullable=False)
