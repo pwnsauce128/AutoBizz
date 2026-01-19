@@ -83,6 +83,42 @@ server {
 
 If you prefer, you can also use Caddy or another server to handle HTTPS and static assets; the key idea is to terminate TLS at the proxy and keep Gunicorn behind it on plain HTTP.
 
+#### Nginx setup steps (Debian/Ubuntu)
+
+1. Install Nginx (if needed):
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y nginx
+   ```
+
+2. Create a site config file, for example:
+
+   ```bash
+   sudo nano /etc/nginx/sites-available/autobizz
+   ```
+
+3. Paste the `server { ... }` block shown above, and replace:
+   - `server_name` with your domain.
+   - `ssl_certificate`/`ssl_certificate_key` with your actual cert paths.
+   - `root` with the absolute path to `frontend/web-ui`.
+
+4. Enable the site and disable the default (optional but common):
+
+   ```bash
+   sudo ln -s /etc/nginx/sites-available/autobizz /etc/nginx/sites-enabled/autobizz
+   sudo rm -f /etc/nginx/sites-enabled/default
+   ```
+
+5. Check the config and reload Nginx:
+
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+6. Make sure Gunicorn is running on `http://127.0.0.1:8000` so `/api/` requests can be proxied correctly.
+
 To point the UI at a different backend, set a global variable or local storage value before reloading the page:
 
 ```html
