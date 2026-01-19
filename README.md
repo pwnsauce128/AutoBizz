@@ -36,6 +36,14 @@ pytest backend/tests
 
 The application defaults to an in-memory SQLite database when running tests and to a local SQLite file (`autobet.db`) for development. Configure `DATABASE_URL` and `JWT_SECRET_KEY` environment variables in production deployments.
 
+### MySQL setup helper
+
+Use the MySQL helper script to install a MySQL server/client (where supported), create the database/user, install the Python driver, and write an environment file:
+
+```bash
+bash backend/scripts/mysql_setup.sh
+```
+
 ### Environment variables
 
 Set the required secrets before launching the server. On macOS/Linux:
