@@ -8,7 +8,7 @@ This repository contains a Flask-based backend prototype for the AutoBet MVP des
 - Administrative APIs for user provisioning and status updates.
 - Seller-facing auction CRUD with automatic 24h window enforcement and notification fan-out.
 - Buyer bidding API with validation of positive bid amounts, highest bid requirement, and two-bid limit per auction.
-- Notification registry endpoints for Expo push tokens plus persistence of notification events.
+- Notification registry endpoints plus persistence of notification events.
 - `/time` endpoint exposing canonical server time for client countdown synchronization.
 - SQLAlchemy models aligned with the proposed data schema (users, auctions, bids, notifications, audit logs, devices).
 - Integration tests covering critical seller/buyer flows using pytest.
@@ -36,7 +36,33 @@ pytest backend/tests
 
 The application defaults to an in-memory SQLite database when running tests and to a local SQLite file (`autobet.db`) for development. Configure `DATABASE_URL` and `JWT_SECRET_KEY` environment variables in production deployments.
 
-### MySQL setup helper
+## Web UI (browser only)
+
+The browser-only client lives in `frontend/web-ui/` and can be served as static files. Start the backend first, then run a static file server from the repository root:
+
+```bash
+python backend/run.py
+```
+
+```bash
+python -m http.server 8080
+```
+
+Open <http://localhost:8080/frontend/web-ui/> in your browser.
+
+To point the UI at a different backend, set a global variable or local storage value before reloading the page:
+
+```html
+<script>
+  window.EXPO_PUBLIC_API_URL = 'https://your-backend.example.com';
+</script>
+```
+
+```js
+localStorage.setItem('apiBaseUrl', 'https://your-backend.example.com');
+```
+
+## MySQL setup helper
 
 Use the MySQL helper script to install a MySQL server/client (where supported), create the database/user, install the Python driver, and write an environment file:
 
@@ -44,7 +70,7 @@ Use the MySQL helper script to install a MySQL server/client (where supported), 
 bash backend/scripts/mysql_setup.sh
 ```
 
-### Environment variables
+## Environment variables
 
 Set the required secrets before launching the server. On macOS/Linux:
 
@@ -62,7 +88,7 @@ $env:DATABASE_URL = "sqlite:///autobet.db"
 python backend/run.py
 ```
 
-### Production setup script
+## Production setup script
 
 Run the interactive helper to prepare a production deployment in one pass:
 
@@ -78,11 +104,11 @@ The script can:
 - Execute the Flask application factory so your target database has all required tables.
 - Seed (or update) the first administrator account, including password rotation if an admin already exists.
 
-### Enabling HTTPS
+## Enabling HTTPS
 
 The backend enforces HTTPS when `ENFORCE_HTTPS=true` (default). Terminate TLS at your reverse proxy or load balancer (for example Nginx or HAProxy) and point it at the Flask/Gunicorn process over plain HTTP. Place the certificate and private key where your proxy expects them—on most Linux distributions that is `/etc/letsencrypt/live/<your-domain>/fullchain.pem` and `/etc/letsencrypt/live/<your-domain>/privkey.pem` when using Let’s Encrypt. If you provide your own certificate, store it alongside your proxy’s TLS assets (for example `/etc/ssl/<your-domain>/`), reference the paths in the proxy config, and ensure the proxy sends `X-Forwarded-Proto: https` so the app can recognize secure requests.
 
-### Bootstrapping the first admin (manual alternative)
+## Bootstrapping the first admin (manual alternative)
 
 If you prefer to provision the administrator manually, configure the environment variables above so they point at the production database and then run:
 
@@ -118,7 +144,3 @@ PY
 ```
 
 The script is idempotent, so re-running it is safe; it will simply inform you if the admin account is already present.
-
-## Expo client
-
-An Expo Go compatible mobile client lives in the [`frontend/`](frontend/README.md) directory. It implements buyer registration, login, the active auction feed, auction detail, and bid placement against this backend. Follow the frontend README for setup instructions.
