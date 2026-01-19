@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AutoBizz Web UI</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <main id="app" class="app">
+        <section id="view-login" class="view card-view" data-view>
+          <h1 class="card-title">Welcome back</h1>
+          <label class="field">
+            <span>Username or email</span>
+            <input type="text" id="login-identifier" placeholder="Username or email" />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" id="login-password" placeholder="Password" />
+          </label>
+          <button id="login-submit" class="primary-button">Sign in</button>
+          <button class="link-button" data-action="show-register">Create an account</button>
+        </section>
+
+        <section id="view-register" class="view card-view" data-view hidden>
+          <h1 class="card-title">Join AutoBizz</h1>
+          <label class="field">
+            <span>Username</span>
+            <input type="text" id="register-username" placeholder="Username" />
+          </label>
+          <label class="field">
+            <span>Email</span>
+            <input type="email" id="register-email" placeholder="Email" />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" id="register-password" placeholder="Password" />
+          </label>
+          <button id="register-submit" class="primary-button">Create account</button>
+          <button class="link-button" data-action="show-login">Back to login</button>
+        </section>
+
+        <section id="view-buyer" class="view" data-view hidden>
+          <header class="page-header">
+            <div>
+              <h1>Active auctions</h1>
+              <p>Browse and bid on the latest vehicles</p>
+            </div>
+            <button class="secondary-button" data-action="logout">Log out</button>
+          </header>
+          <div class="tab-bar">
+            <button class="tab-button" data-tab="all">All auctions</button>
+            <button class="tab-button" data-tab="participating">My bids</button>
+          </div>
+          <div id="buyer-list" class="card-grid"></div>
+        </section>
+
+        <section id="view-auction-detail" class="view" data-view hidden>
+          <header class="page-header compact">
+            <div>
+              <h1 id="detail-title">Auction detail</h1>
+              <p id="detail-subtitle">Review the listing and place your bid.</p>
+            </div>
+            <button class="secondary-button" data-action="back">Back</button>
+          </header>
+          <div id="detail-body" class="detail-body"></div>
+        </section>
+
+        <section id="view-seller" class="view" data-view hidden>
+          <header class="page-header">
+            <div>
+              <h1>Seller workspace</h1>
+              <p>Publish new auctions and manage your listings</p>
+            </div>
+            <button class="secondary-button" data-action="logout">Log out</button>
+          </header>
+          <div class="tab-bar">
+            <button class="tab-button" data-tab="create">Create auction</button>
+            <button class="tab-button" data-tab="manage">My auctions</button>
+          </div>
+          <div id="seller-body"></div>
+        </section>
+
+        <section id="view-admin" class="view" data-view hidden>
+          <header class="page-header">
+            <div>
+              <h1>Admin control center</h1>
+              <p>Manage platform users and oversee auctions</p>
+            </div>
+            <button class="secondary-button" data-action="logout">Log out</button>
+          </header>
+          <div class="tab-bar">
+            <button class="tab-button" data-tab="users">Users</button>
+            <button class="tab-button" data-tab="auctions">Auctions</button>
+          </div>
+          <div id="admin-body"></div>
+        </section>
+      </main>
+      <div id="toast" class="toast" hidden></div>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

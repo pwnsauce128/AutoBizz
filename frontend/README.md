@@ -58,6 +58,10 @@ This directory contains a lightweight Expo/React Native client for interacting w
 
    Scan the QR code with the Expo Go app or press `w` to open the web preview.
 
+## Standalone web UI
+
+If you want a lightweight browser-only UI that mirrors the Expo web experience, you can use the static web UI in [`frontend/web-ui`](web-ui/README.md). It reuses the same backend endpoints and styling cues as the Expo client, but runs as a simple HTML/CSS/JS app for quick deployments.
+
 ## Project structure
 
 ```
