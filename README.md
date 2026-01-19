@@ -50,6 +50,75 @@ python -m http.server 8080
 
 Open <http://localhost:8080/frontend/web-ui/> in your browser.
 
+### Serving the UI in production (TLS + reverse proxy)
+
+Gunicorn should run the Flask backend only. For production, serve the static UI with a web server/reverse proxy (Nginx, Caddy, Apache) and terminate TLS there. That proxy can:
+
+- Serve `frontend/web-ui/` as static files.
+- Proxy API requests (for example `/api`) to the Gunicorn backend on `http://127.0.0.1:8000`.
+
+This keeps certificates in one place and avoids trying to make Gunicorn serve both static content and the API.
+
+If you already have certificates in `backend/certs`, point your reverse proxy to those files (or move them to the location your proxy expects). Example Nginx layout (paths are illustrative):
+
+```nginx
+server {
+  listen 443 ssl;
+  server_name your-domain.example;
+
+  ssl_certificate     /home/debian/AutoBizz/backend/certs/server.crt;
+  ssl_certificate_key /home/debian/AutoBizz/backend/certs/server.key;
+
+  root /home/debian/AutoBizz/frontend/web-ui;
+  index index.html;
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:8000/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+```
+
+If you prefer, you can also use Caddy or another server to handle HTTPS and static assets; the key idea is to terminate TLS at the proxy and keep Gunicorn behind it on plain HTTP.
+
+#### Nginx setup steps (Debian/Ubuntu)
+
+1. Install Nginx (if needed):
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y nginx
+   ```
+
+2. Create a site config file, for example:
+
+   ```bash
+   sudo nano /etc/nginx/sites-available/autobizz
+   ```
+
+3. Paste the `server { ... }` block shown above, and replace:
+   - `server_name` with your domain.
+   - `ssl_certificate`/`ssl_certificate_key` with your actual cert paths.
+   - `root` with the absolute path to `frontend/web-ui`.
+
+4. Enable the site and disable the default (optional but common):
+
+   ```bash
+   sudo ln -s /etc/nginx/sites-available/autobizz /etc/nginx/sites-enabled/autobizz
+   sudo rm -f /etc/nginx/sites-enabled/default
+   ```
+
+5. Check the config and reload Nginx:
+
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+6. Make sure Gunicorn is running on `http://127.0.0.1:8000` so `/api/` requests can be proxied correctly.
+
 To point the UI at a different backend, set a global variable or local storage value before reloading the page:
 
 ```html
