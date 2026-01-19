@@ -73,6 +73,11 @@ def _collect_postgres_admin_url(db_url: str) -> str:
     admin_default = url.set(database="postgres")
     return _prompt("PostgreSQL admin URL", default=str(admin_default))
 
+def _to_libpq_url(url) -> str:
+    if url.drivername.startswith("postgresql") and url.drivername != "postgresql":
+        url = url.set(drivername="postgresql")
+    return str(url)
+
 
 def _ensure_database_exists(db_url: str, admin_url: str | None = None) -> None:
     url = make_url(db_url)
@@ -106,8 +111,9 @@ def _ensure_database_exists(db_url: str, admin_url: str | None = None) -> None:
         if admin_url.password:
             env["PGPASSWORD"] = admin_url.password
         query = f"SELECT 1 FROM pg_database WHERE datname = '{database_name}';"
+        libpq_admin_url = _to_libpq_url(admin_url)
         result = subprocess.run(
-            ["psql", str(admin_url), "-tAc", query],
+            ["psql", libpq_admin_url, "-tAc", query],
             check=False,
             capture_output=True,
             text=True,
@@ -124,14 +130,14 @@ def _ensure_database_exists(db_url: str, admin_url: str | None = None) -> None:
         if url.username:
             owner_flag = ["--owner", url.username]
         if shutil.which("createdb") is not None:
-            createdb_cmd = ["createdb", database_name, "--dbname", str(admin_url), *owner_flag]
+            createdb_cmd = ["createdb", database_name, "--dbname", libpq_admin_url, *owner_flag]
             subprocess.run(createdb_cmd, check=True, env=env)
         else:
             owner_sql = f' OWNER "{url.username}"' if url.username else ""
             subprocess.run(
                 [
                     "psql",
-                    str(admin_url),
+                    libpq_admin_url,
                     "-c",
                     f'CREATE DATABASE "{database_name}"{owner_sql};',
                 ],
@@ -187,8 +193,9 @@ def _ensure_postgres_role(db_url: str, admin_url: str | None = None) -> None:
     username = url.username
     password = url.password
     query = f"SELECT 1 FROM pg_roles WHERE rolname = '{username}';"
+    libpq_admin_url = _to_libpq_url(admin_url)
     result = subprocess.run(
-        ["psql", str(admin_url), "-tAc", query],
+        ["psql", libpq_admin_url, "-tAc", query],
         check=False,
         capture_output=True,
         text=True,
@@ -202,7 +209,7 @@ def _ensure_postgres_role(db_url: str, admin_url: str | None = None) -> None:
         print(f"PostgreSQL role '{username}' already exists.")
         if password and _prompt_bool("Update the role password?", default=False):
             subprocess.run(
-                ["psql", str(admin_url), "-c", f"ALTER ROLE \"{username}\" WITH PASSWORD '{password}';"],
+                ["psql", libpq_admin_url, "-c", f"ALTER ROLE \"{username}\" WITH PASSWORD '{password}';"],
                 check=True,
                 env=env,
             )
@@ -213,7 +220,7 @@ def _ensure_postgres_role(db_url: str, admin_url: str | None = None) -> None:
     subprocess.run(
         [
             "psql",
-            str(admin_url),
+            libpq_admin_url,
             "-c",
             f"CREATE ROLE \"{username}\" WITH LOGIN PASSWORD '{password}';",
         ],
