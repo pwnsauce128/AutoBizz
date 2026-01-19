@@ -45,12 +45,12 @@ install_mysql() {
 
   if [[ "${OSTYPE}" == "linux-gnu"* ]]; then
     if command -v apt-get >/dev/null 2>&1; then
-      echo "Installing MySQL server + client via apt-get..."
+      echo "Installing MariaDB server + client via apt-get..."
       sudo apt-get update
-      sudo apt-get install -y mysql-server mysql-client
+      sudo apt-get install -y mariadb-server mariadb-client-compat
     elif command -v dnf >/dev/null 2>&1; then
-      echo "Installing MySQL server + client via dnf..."
-      sudo dnf install -y mysql-server mysql
+      echo "Installing MariaDB server + client via dnf..."
+      sudo dnf install -y mariadb-server mariadb
       sudo systemctl enable --now mysqld
     else
       echo "Unsupported Linux package manager. Install MySQL manually." >&2
