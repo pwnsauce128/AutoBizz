@@ -68,7 +68,13 @@ def _collect_database_url() -> str:
         return candidate
 
 
-def _ensure_database_exists(db_url: str) -> None:
+def _collect_postgres_admin_url(db_url: str) -> str:
+    url = make_url(db_url)
+    admin_default = url.set(database="postgres")
+    return _prompt("PostgreSQL admin URL", default=str(admin_default))
+
+
+def _ensure_database_exists(db_url: str, admin_url: str | None = None) -> None:
     url = make_url(db_url)
     if url.drivername.startswith("sqlite"):
         if url.database in (None, "", ":memory:"):
@@ -93,10 +99,12 @@ def _ensure_database_exists(db_url: str) -> None:
         if not database_name:
             print("No database name found in DATABASE_URL; skipping database creation.")
             return
-        admin_url = url.set(database="postgres")
+        if admin_url is None:
+            admin_url = _collect_postgres_admin_url(db_url)
+        admin_url = make_url(admin_url)
         env = os.environ.copy()
-        if url.password:
-            env["PGPASSWORD"] = url.password
+        if admin_url.password:
+            env["PGPASSWORD"] = admin_url.password
         query = f"SELECT 1 FROM pg_database WHERE datname = '{database_name}';"
         result = subprocess.run(
             ["psql", str(admin_url), "-tAc", query],
@@ -112,12 +120,21 @@ def _ensure_database_exists(db_url: str) -> None:
         if result.stdout.strip() == "1":
             print(f"PostgreSQL database '{database_name}' already exists.")
             return
+        owner_flag = []
+        if url.username:
+            owner_flag = ["--owner", url.username]
         if shutil.which("createdb") is not None:
-            createdb_cmd = ["createdb", database_name, "--dbname", str(admin_url)]
+            createdb_cmd = ["createdb", database_name, "--dbname", str(admin_url), *owner_flag]
             subprocess.run(createdb_cmd, check=True, env=env)
         else:
+            owner_sql = f' OWNER "{url.username}"' if url.username else ""
             subprocess.run(
-                ["psql", str(admin_url), "-c", f'CREATE DATABASE "{database_name}";'],
+                [
+                    "psql",
+                    str(admin_url),
+                    "-c",
+                    f'CREATE DATABASE "{database_name}"{owner_sql};',
+                ],
                 check=True,
                 env=env,
             )
@@ -147,6 +164,63 @@ def _collect_cors_origins() -> str | None:
         allow_empty=True,
     )
     return value or None
+
+
+def _ensure_postgres_role(db_url: str, admin_url: str | None = None) -> None:
+    url = make_url(db_url)
+    if not url.drivername.startswith("postgresql"):
+        return
+    if not url.username:
+        print("No username found in DATABASE_URL; skipping role creation.")
+        return
+    if shutil.which("psql") is None:
+        print("psql is not available; please create the PostgreSQL role manually.")
+        return
+    if not _prompt_bool("Create or update the PostgreSQL role now?", default=True):
+        return
+    if admin_url is None:
+        admin_url = _collect_postgres_admin_url(db_url)
+    admin_url = make_url(admin_url)
+    env = os.environ.copy()
+    if admin_url.password:
+        env["PGPASSWORD"] = admin_url.password
+    username = url.username
+    password = url.password
+    query = f"SELECT 1 FROM pg_roles WHERE rolname = '{username}';"
+    result = subprocess.run(
+        ["psql", str(admin_url), "-tAc", query],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    if result.returncode != 0:
+        print("Unable to query PostgreSQL for role existence:")
+        print(result.stderr.strip())
+        return
+    if result.stdout.strip() == "1":
+        print(f"PostgreSQL role '{username}' already exists.")
+        if password and _prompt_bool("Update the role password?", default=False):
+            subprocess.run(
+                ["psql", str(admin_url), "-c", f"ALTER ROLE \"{username}\" WITH PASSWORD '{password}';"],
+                check=True,
+                env=env,
+            )
+            print("Role password updated.")
+        return
+    if not password:
+        password = getpass(f"Password for new PostgreSQL role '{username}': ")
+    subprocess.run(
+        [
+            "psql",
+            str(admin_url),
+            "-c",
+            f"CREATE ROLE \"{username}\" WITH LOGIN PASSWORD '{password}';",
+        ],
+        check=True,
+        env=env,
+    )
+    print(f"Created PostgreSQL role '{username}'.")
 
 
 def _generate_self_signed_certificate(cert_path: Path, key_path: Path, common_name: str) -> None:
@@ -291,7 +365,13 @@ def main() -> None:
         _run_step(_ensure_requirements_installed)
 
     db_url = _collect_database_url()
-    _run_step(lambda: _ensure_database_exists(db_url))
+    admin_url = None
+    if make_url(db_url).drivername.startswith("postgresql"):
+        admin_url = _collect_postgres_admin_url(db_url)
+        _run_step(lambda: _ensure_postgres_role(db_url, admin_url))
+        _run_step(lambda: _ensure_database_exists(db_url, admin_url))
+    else:
+        _run_step(lambda: _ensure_database_exists(db_url))
     jwt_secret = _collect_jwt_secret()
     cors_origins = _collect_cors_origins()
     https_cert = _collect_https_certificate()
