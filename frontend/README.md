@@ -1,90 +1,44 @@
-# AutoBizz Expo client
+# AutoBizz Web Client
 
-This directory contains a lightweight Expo/React Native client for interacting with the AutoBizz backend APIs. The application targets Expo Go so you can iterate quickly on iOS, Android or the web.
-
-## Features
-
-- Email/username + password login against `/auth/login` with JWT storage in memory.
-- Buyer self-registration through `/auth/register`.
-- Active auction feed backed by `/auctions`.
-- Auction detail view showing the current best bid and metadata for the selected auction.
-- Buyer bid placement through `/auctions/<id>/bids` with inline error handling.
+This frontend is now a browser-only web client. It ships as static HTML/CSS/JS in `frontend/web-ui/` and is designed to run in any modern browser, including mobile browsers.
 
 ## Prerequisites
 
-- Node.js 18+
-- `npm` or `yarn`
-- Expo CLI (`npm install -g expo-cli`) if you prefer the global binary
+- Python 3 (for a simple static file server) or any other static web server
 - The AutoBizz backend running locally (default `http://127.0.0.1:5000`)
 
 ## Getting started
 
-1. Install dependencies:
+1. Start the backend (from the repository root):
 
    ```bash
-   cd frontend
-   npm install
-   npx expo install react-native-web react-dom @expo/metro-runtime
+   python backend/run.py
    ```
 
-2. Optionally configure the backend URL exposed to the Expo client by creating an `.env` file in this folder (make sure to restart `npm start` after changing it). `app.config.js` loads this file via `dotenv` and injects `EXPO_PUBLIC_API_URL` into Expo config so the value is available even when `process.env` is empty inside Metro. If no `.env` is found, the Expo config still exposes `extra.apiUrl` with the default `http://127.0.0.1:5000`:
+2. Serve the static web UI (from the repository root):
 
    ```bash
-   echo "EXPO_PUBLIC_API_URL=http://127.0.0.1:5000" > .env
+   python -m http.server 8080
    ```
 
-   When omitted, the app falls back to `http://127.0.0.1:5000`.
+3. Open the web UI in your browser:
 
-   To confirm Metro can see your `.env`, run `npx expo config --json | jq '.extra.apiUrl'` from the `frontend/` folder and verify the output matches your configured URL. If you see the fallback `"http://127.0.0.1:5000"`, Metro did not pick up your `.env`.
+   <http://localhost:8080/frontend/web-ui/>
 
-   **If `EXPO_PUBLIC_API_URL` shows up as `undefined`, check the following:**
+## Pointing at a different backend
 
-   - Restart Metro with cache cleared (`npx expo start -c`). Environment variables are only read when the bundler starts.
-   - Ensure the `.env` file sits directly in the `frontend/` folder (next to `package.json`) and the key is spelled exactly `EXPO_PUBLIC_API_URL` without quotes or spaces.
-   - Run `npm run start` from the `frontend/` directory so Expo can see the `.env` file.
-   - Confirm the value is also present in Expo config (`Constants.expoConfig.extra.apiUrl`), which is logged on app startup.
+If your backend is hosted elsewhere, expose the URL before loading the page:
 
-3. Start the backend if it is not already running:
-
-   ```bash
-   python ../backend/run.py
-   ```
-
-4. Launch Expo:
-
-   ```bash
-   npm run start
-   ```
-
-   Scan the QR code with the Expo Go app or press `w` to open the web preview.
-
-## Standalone web UI
-
-If you want a lightweight browser-only UI that mirrors the Expo web experience, you can use the static web UI in [`frontend/web-ui`](web-ui/README.md). It reuses the same backend endpoints and styling cues as the Expo client, but runs as a simple HTML/CSS/JS app for quick deployments.
-
-## Project structure
-
-```
-frontend/
-├── App.js                 # Navigation + root provider wiring
-├── app.json               # Legacy static Expo configuration (most values live in app.config.js)
-├── app.config.js          # Expo configuration with dotenv support for EXPO_PUBLIC_API_URL
-├── package.json           # Dependencies and scripts
-├── assets/                # Placeholder icons for Expo builds
-└── src/
-    ├── api/               # Minimal REST client targeting the Flask backend
-    ├── components/        # Presentational UI components
-    ├── context/           # Auth context keeping JWTs in memory
-    ├── screens/           # React Navigation screens
-    └── utils/             # Helpers (JWT decoding, etc.)
+```html
+<script>
+  window.EXPO_PUBLIC_API_URL = 'https://your-backend.example.com';
+</script>
 ```
 
-## Authentication notes
+You can also store a custom URL in local storage:
 
-The backend returns JWT access/refresh tokens enriched with the user role. The client decodes the access token to determine whether the current user is a buyer so it can enable bid placement. Tokens are kept in memory for simplicity—persist them to secure storage for production usage.
+```js
+localStorage.setItem('apiBaseUrl', 'https://your-backend.example.com');
+```
 
-## Extending the app
-
-- Add seller/admin dashboards by branching on the decoded role stored in the auth context.
-- Persist JWTs using `expo-secure-store` to keep users logged in between sessions.
-- Subscribe to `/notifications` from the backend to surface push updates to buyers and sellers.
+Reload the page after changing the base URL.
