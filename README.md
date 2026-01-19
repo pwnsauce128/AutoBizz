@@ -50,6 +50,39 @@ python -m http.server 8080
 
 Open <http://localhost:8080/frontend/web-ui/> in your browser.
 
+### Serving the UI in production (TLS + reverse proxy)
+
+Gunicorn should run the Flask backend only. For production, serve the static UI with a web server/reverse proxy (Nginx, Caddy, Apache) and terminate TLS there. That proxy can:
+
+- Serve `frontend/web-ui/` as static files.
+- Proxy API requests (for example `/api`) to the Gunicorn backend on `http://127.0.0.1:8000`.
+
+This keeps certificates in one place and avoids trying to make Gunicorn serve both static content and the API.
+
+If you already have certificates in `backend/certs`, point your reverse proxy to those files (or move them to the location your proxy expects). Example Nginx layout (paths are illustrative):
+
+```nginx
+server {
+  listen 443 ssl;
+  server_name your-domain.example;
+
+  ssl_certificate     /home/debian/AutoBizz/backend/certs/server.crt;
+  ssl_certificate_key /home/debian/AutoBizz/backend/certs/server.key;
+
+  root /home/debian/AutoBizz/frontend/web-ui;
+  index index.html;
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:8000/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+```
+
+If you prefer, you can also use Caddy or another server to handle HTTPS and static assets; the key idea is to terminate TLS at the proxy and keep Gunicorn behind it on plain HTTP.
+
 To point the UI at a different backend, set a global variable or local storage value before reloading the page:
 
 ```html
