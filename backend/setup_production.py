@@ -8,6 +8,7 @@ import subprocess
 import sys
 from getpass import getpass
 from pathlib import Path
+import shutil
 from typing import Callable
 
 from sqlalchemy.engine.url import make_url
@@ -67,6 +68,68 @@ def _collect_database_url() -> str:
         return candidate
 
 
+def _ensure_database_exists(db_url: str) -> None:
+    url = make_url(db_url)
+    if url.drivername.startswith("sqlite"):
+        if url.database in (None, "", ":memory:"):
+            print("SQLite in-memory database requested; skipping file creation.")
+            return
+        db_path = Path(url.database)
+        if not db_path.is_absolute():
+            db_path = (PROJECT_ROOT / db_path).resolve()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        if not db_path.exists():
+            db_path.touch()
+            print(f"Created SQLite database file at {db_path}.")
+        else:
+            print(f"SQLite database file already exists at {db_path}.")
+        return
+
+    if url.drivername.startswith("postgresql"):
+        if shutil.which("psql") is None:
+            print("psql is not available; please create the PostgreSQL database manually.")
+            return
+        database_name = url.database
+        if not database_name:
+            print("No database name found in DATABASE_URL; skipping database creation.")
+            return
+        admin_url = url.set(database="postgres")
+        env = os.environ.copy()
+        if url.password:
+            env["PGPASSWORD"] = url.password
+        query = f"SELECT 1 FROM pg_database WHERE datname = '{database_name}';"
+        result = subprocess.run(
+            ["psql", str(admin_url), "-tAc", query],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if result.returncode != 0:
+            print("Unable to query PostgreSQL for database existence:")
+            print(result.stderr.strip())
+            return
+        if result.stdout.strip() == "1":
+            print(f"PostgreSQL database '{database_name}' already exists.")
+            return
+        if shutil.which("createdb") is not None:
+            createdb_cmd = ["createdb", database_name, "--dbname", str(admin_url)]
+            subprocess.run(createdb_cmd, check=True, env=env)
+        else:
+            subprocess.run(
+                ["psql", str(admin_url), "-c", f'CREATE DATABASE "{database_name}";'],
+                check=True,
+                env=env,
+            )
+        print(f"Created PostgreSQL database '{database_name}'.")
+        return
+
+    print(
+        f"Database creation is not automated for '{url.drivername}'. "
+        "Please ensure the database exists before continuing."
+    )
+
+
 def _collect_jwt_secret() -> str:
     if _prompt_bool("Generate a random JWT secret for you?", default=True):
         secret = secrets.token_urlsafe(64)
@@ -84,6 +147,49 @@ def _collect_cors_origins() -> str | None:
         allow_empty=True,
     )
     return value or None
+
+
+def _generate_self_signed_certificate(cert_path: Path, key_path: Path, common_name: str) -> None:
+    cert_path.parent.mkdir(parents=True, exist_ok=True)
+    key_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            str(key_path),
+            "-out",
+            str(cert_path),
+            "-days",
+            "365",
+            "-nodes",
+            "-subj",
+            f"/CN={common_name}",
+        ],
+        check=True,
+    )
+    print(f"Generated HTTPS certificate at {cert_path} and key at {key_path}.")
+
+
+def _collect_https_certificate() -> tuple[str, str] | None:
+    if not _prompt_bool("Generate a self-signed HTTPS certificate now?", default=True):
+        return None
+    if shutil.which("openssl") is None:
+        print("OpenSSL is not available; skipping certificate generation.")
+        return None
+    cert_dir = _prompt("Certificate directory", default="backend/certs")
+    common_name = _prompt("Certificate common name (CN)", default="localhost")
+    cert_path = (PROJECT_ROOT / cert_dir / "server.crt").resolve()
+    key_path = (PROJECT_ROOT / cert_dir / "server.key").resolve()
+    if cert_path.exists() or key_path.exists():
+        if not _prompt_bool("Certificate files already exist. Overwrite?", default=False):
+            print("Keeping existing certificate files.")
+            return str(cert_path), str(key_path)
+    _generate_self_signed_certificate(cert_path, key_path, common_name)
+    return str(cert_path), str(key_path)
 
 
 def _write_env_file(env_vars: dict[str, str]) -> None:
@@ -185,8 +291,10 @@ def main() -> None:
         _run_step(_ensure_requirements_installed)
 
     db_url = _collect_database_url()
+    _run_step(lambda: _ensure_database_exists(db_url))
     jwt_secret = _collect_jwt_secret()
     cors_origins = _collect_cors_origins()
+    https_cert = _collect_https_certificate()
 
     env_vars = {
         "DATABASE_URL": db_url,
@@ -194,6 +302,9 @@ def main() -> None:
     }
     if cors_origins:
         env_vars["CORS_ORIGINS"] = cors_origins
+    if https_cert:
+        env_vars["SSL_CERT_FILE"] = https_cert[0]
+        env_vars["SSL_KEY_FILE"] = https_cert[1]
 
     if _prompt_bool("Write these settings to an environment file?", default=True):
         _write_env_file(env_vars)
@@ -209,6 +320,9 @@ def main() -> None:
     _create_or_update_admin(app, username, email, password)
 
     _print_title("All done")
+    if https_cert:
+        print("Use the generated TLS assets with your server, for example:")
+        print(f'  gunicorn --certfile "{https_cert[0]}" --keyfile "{https_cert[1]}" "app:create_app()"')
     print("Production setup complete. You can now launch the backend with your WSGI server of choice.")
 
 
